@@ -69,27 +69,7 @@ export default function HomePage() {
 
     return (
         <div dir={dir} className="min-h-screen bg-gray-50 font-sans">
-            {/* Header and Language Switcher */}
-            <header className="bg-white shadow-md p-4 flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-[#1e40af]">{t('welcome')}</h1>
-                <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-                        className="flex items-center space-x-2 bg-gray-100 text-[#1e40af] py-1 px-3 rounded-full text-sm hover:bg-gray-200 transition"
-                    >
-                        <Globe size={16} />
-                        <span className='font-medium'>{language === 'en' ? 'العربية' : 'English'}</span>
-                    </button>
-
-                    {user ? (
-                        <Link href="/profile/settings" className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
-                                {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Me</div>}
-                            </div>
-                        </Link>
-                    ) : null}
-                </div>
-            </header>
+            {/* Header is rendered in the root layout now */}
 
             <main className="max-w-6xl mx-auto p-6 sm:p-10">
                 {/* Hero Section */}

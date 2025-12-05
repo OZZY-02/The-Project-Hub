@@ -1,0 +1,57 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import supabase from '../lib/supabaseClient';
+import { Globe } from 'lucide-react';
+
+export default function SiteHeader() {
+  const [language, setLanguage] = useState<'en' | 'ar'>('en');
+  const [user, setUser] = useState<any | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      const u = data?.user || null;
+      if (!mounted) return;
+      setUser(u);
+      if (u) {
+        const { data: profile } = await supabase.from('profiles').select('avatar_data_url,avatar_url').eq('id', u.id).single();
+        const avatar = profile?.avatar_data_url || profile?.avatar_url || null;
+        if (avatar) setAvatarUrl(avatar);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  return (
+    <header className="bg-white shadow-md p-4 flex justify-between items-center">
+      <h1 className="text-2xl font-bold text-[#1e40af]">The Project Hub</h1>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
+          className="flex items-center space-x-2 bg-gray-100 text-[#1e40af] py-1 px-3 rounded-full text-sm hover:bg-gray-200 transition"
+        >
+          <Globe size={16} />
+          <span className='font-medium'>{language === 'en' ? 'العربية' : 'English'}</span>
+        </button>
+
+        {user ? (
+          <Link href="/profile/settings" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100">
+              {avatarUrl ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Me</div>}
+            </div>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link href="/auth/signin" className="px-3 py-1 rounded text-sm border">Sign In</Link>
+            <Link href="/auth/signup" className="px-3 py-1 rounded bg-[#1e40af] text-white">Sign Up</Link>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}
