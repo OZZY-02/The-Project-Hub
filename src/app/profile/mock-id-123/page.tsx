@@ -13,8 +13,7 @@ type Project = {
   name: string;
   description: string;
   skills: string[];
-  softwares: string[];
-  hardwares: string[];
+  toolsUsed: string[];
   images: string[]; // data URLs
 };
 
@@ -94,7 +93,7 @@ export default function SampleMakerProfilePage() {
   };
 
   const addProject = () => {
-    setProjects(prev => [...prev, { id: genId(), name: '', description: '', skills: [], softwares: [], hardwares: [], images: [] }]);
+    setProjects(prev => [...prev, { id: genId(), name: '', description: '', skills: [], toolsUsed: [], images: [] }]);
   };
 
   const removeProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
@@ -209,16 +208,6 @@ export default function SampleMakerProfilePage() {
     }
   };
 
-  const downloadJson = () => {
-    const data = localStorage.getItem('sample_profile_intake') || JSON.stringify({});
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'sample_profile_intake.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -337,14 +326,9 @@ export default function SampleMakerProfilePage() {
               </div>
 
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium">{t('sample.softwares','Softwares')}</label>
-                  <input value={p.softwares.join(', ')} onChange={e => updateProject(p.id, { softwares: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full border p-2 rounded" placeholder={t('sample.softwares_placeholder','comma-separated')} />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium">{t('sample.hardwares','Hardwares')}</label>
-                  <input value={p.hardwares.join(', ')} onChange={e => updateProject(p.id, { hardwares: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full border p-2 rounded" placeholder={t('sample.hardwares_placeholder','comma-separated')} />
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium">{t('sample.tools_used','Tools Used (software, hardware, etc.)')}</label>
+                  <input value={p.toolsUsed.join(', ')} onChange={e => updateProject(p.id, { toolsUsed: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full border p-2 rounded" placeholder={t('sample.tools_used_placeholder','comma-separated')} />
                 </div>
               </div>
 
@@ -367,7 +351,6 @@ export default function SampleMakerProfilePage() {
 
       <div className="flex gap-3">
         <button onClick={saveAll} className="px-4 py-2 bg-[#1e40af] text-white rounded">{t('sample.save','Save')}</button>
-        <button onClick={downloadJson} className="px-4 py-2 border rounded">{t('sample.download','Download JSON')}</button>
       </div>
     </div>
   );
