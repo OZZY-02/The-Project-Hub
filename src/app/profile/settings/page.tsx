@@ -7,6 +7,7 @@ export default function ProfileSettingsPage() {
     const [user, setUser] = useState<any | null>(null);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -24,10 +25,11 @@ export default function ProfileSettingsPage() {
 
             if (current) {
                 // try to load profile row if exists
-                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,avatar_data_url').eq('id', current.id).single();
+                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,username,avatar_data_url').eq('id', current.id).single();
                 if (profile) {
                     setFirstName(profile.first_name || '');
                     setLastName(profile.last_name || '');
+                    setUsername(profile.username || '');
                     setAvatarDataUrl(profile.avatar_data_url || null);
                     setAvatarPreview(profile.avatar_data_url || null);
                 }
@@ -88,7 +90,21 @@ export default function ProfileSettingsPage() {
         setMessage(null);
         try {
             // update profile row (store avatar as data URL)
-            await supabase.from('profiles').upsert({ id: user.id, first_name: firstName, last_name: lastName, avatar_data_url: avatarDataUrl });
+            // if username provided, verify uniqueness
+            if (username && username.trim().length > 0) {
+                const uname = username.trim();
+                const { data: existing } = await supabase.from('profiles').select('id').ilike('username', uname);
+                if (existing && existing.length > 0) {
+                    const conflict = existing.find((r: any) => r.id !== user.id);
+                    if (conflict) {
+                        setMessage('Username already taken. Please choose another.');
+                        setLoading(false);
+                        return;
+                    }
+                }
+            }
+
+            await supabase.from('profiles').upsert({ id: user.id, first_name: firstName, last_name: lastName, username: username || null, avatar_data_url: avatarDataUrl });
 
             // update password if provided
             if (password) {
@@ -117,7 +133,7 @@ export default function ProfileSettingsPage() {
     return (
         <div className="p-6 max-w-2xl">
             <h2 className="text-2xl font-bold mb-3">Profile Settings</h2>
-            <p className="text-sm text-gray-600 mb-4">User ID: <span className="font-mono">{user.id}</span></p>
+            <p className="text-sm text-gray-600 mb-4">Account: <span className="font-medium">(hidden)</span></p>
 
             <form onSubmit={handleSave} className="space-y-4">
                 <div>
