@@ -168,7 +168,7 @@ export default function SampleMakerProfilePage() {
 
       // If user is not authenticated, do not attempt DB insert (will fail under RLS).
       if (!userId) {
-        try { localStorage.setItem('sample_profile_intake', JSON.stringify(finalPayload)); } catch (e) {}
+        try { localStorage.setItem('sample_profile_intake', JSON.stringify(payload)); } catch (e) {}
         window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally. Sign in to persist to Supabase.' } }));
         return;
       }
