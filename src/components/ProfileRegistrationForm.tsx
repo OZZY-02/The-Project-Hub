@@ -31,7 +31,7 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                 const { data: userData } = await supabase.auth.getUser();
                 const user = userData?.user;
                 if (!user) return;
-                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,username,location_country,location_city,major_field,passion_sector,is_mentor,bio').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,username,location_country,location_city,major_field,passion_sector,is_mentor,bio,avatar_data_url').eq('id', user.id).single();
                 if (!mounted) return;
                 if (profile) {
                     setFirstName(profile.first_name || '');
@@ -43,6 +43,12 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                     setPassionSector(profile.passion_sector || '');
                     setIsMentor(Boolean(profile.is_mentor));
                     setBio(profile.bio || '');
+                    // if profile already has core fields, close modal and redirect to settings
+                    const filled = Boolean(profile.username || profile.first_name || profile.avatar_data_url || profile.location_country || profile.location_city || profile.major_field || profile.passion_sector || profile.bio);
+                    if (filled) {
+                        if (onClose) onClose();
+                        try { router.push('/profile/settings'); } catch (e) {}
+                    }
                 }
             } catch (err) {
                 // ignore missing profile
