@@ -11,7 +11,7 @@ export default function ProfileSettingsPage() {
     const [password, setPassword] = useState('');
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -24,12 +24,12 @@ export default function ProfileSettingsPage() {
 
             if (current) {
                 // try to load profile row if exists
-                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,avatar_url').eq('id', current.id).single();
+                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,avatar_data_url').eq('id', current.id).single();
                 if (profile) {
                     setFirstName(profile.first_name || '');
                     setLastName(profile.last_name || '');
-                    setAvatarUrl(profile.avatar_url || null);
-                    setAvatarPreview(profile.avatar_url || null);
+                    setAvatarDataUrl(profile.avatar_data_url || null);
+                    setAvatarPreview(profile.avatar_data_url || null);
                 }
             }
         })();
@@ -37,9 +37,15 @@ export default function ProfileSettingsPage() {
 
     useEffect(() => {
         if (!avatarFile) return;
-        const url = URL.createObjectURL(avatarFile);
-        setAvatarPreview(url);
-        return () => URL.revokeObjectURL(url);
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result as string | null;
+            if (result) {
+                setAvatarPreview(result);
+                setAvatarDataUrl(result);
+            }
+        };
+        reader.readAsDataURL(avatarFile);
     }, [avatarFile]);
 
     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,21 +58,21 @@ export default function ProfileSettingsPage() {
         setLoading(true);
         setMessage(null);
         try {
-            const fileExt = avatarFile.name.split('.').pop();
-            const filePath = `avatars/${user.id}/${Date.now()}.${fileExt}`;
-            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true });
-            if (uploadError) throw uploadError;
-            const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-            const publicUrl = data?.publicUrl || null;
-            if (publicUrl) {
-                // update profiles table
-                await supabase.from('profiles').upsert({ id: user.id, avatar_url: publicUrl });
-                setAvatarUrl(publicUrl);
-                setMessage('Avatar uploaded.');
-            }
+            // read file as data URL and upsert into profiles.avatar_data_url
+            const reader = new FileReader();
+            const dataUrl: string = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(String(reader.result));
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsDataURL(avatarFile);
+            });
+
+            await supabase.from('profiles').upsert({ id: user.id, avatar_data_url: dataUrl });
+            setAvatarDataUrl(dataUrl);
+            setAvatarPreview(dataUrl);
+            setMessage('Avatar saved to profile.');
         } catch (err: any) {
             console.error('Upload error', err);
-            setMessage(err?.message || 'Failed to upload avatar');
+            setMessage(err?.message || 'Failed to save avatar to profile');
         } finally {
             setLoading(false);
         }
@@ -137,16 +143,16 @@ export default function ProfileSettingsPage() {
                 <div>
                     <label className="block text-sm font-medium">Profile picture</label>
                     <div className="flex items-center gap-4 mt-2">
-                        <div className="w-20 h-20 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
-                            {avatarPreview ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-gray-500">No avatar</span>}
-                        </div>
+                                <div className="w-20 h-20 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                                        {avatarPreview ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-gray-500">No avatar</span>}
+                                    </div>
                         <div className="flex-1">
                             <input type="file" accept="image/*" onChange={handleFile} />
                             <div className="mt-2 flex gap-2">
                                 <button type="button" onClick={handleUploadAvatar} disabled={!avatarFile || loading} className="px-3 py-1 rounded bg-blue-600 text-white">Upload</button>
                                 <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarUrl); }} className="px-3 py-1 rounded border">Cancel</button>
                             </div>
-                            {avatarUrl && <p className="text-xs text-gray-500 mt-2">Current avatar URL: <a className="text-blue-600" href={avatarUrl} target="_blank" rel="noreferrer">Open</a></p>}
+                            {avatarDataUrl && <p className="text-xs text-gray-500 mt-2">Avatar saved in profile.</p>}
                         </div>
                     </div>
                 </div>
