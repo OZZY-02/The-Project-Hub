@@ -50,19 +50,40 @@ export default function HomePage() {
 
     const [user, setUser] = useState<any | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [profileComplete, setProfileComplete] = useState(false);
+
+    const refetchProfile = async () => {
+        try {
+            const { data } = await supabase.auth.getUser();
+            const u = data?.user || null;
+            setUser(u);
+            if (!u) {
+                setAvatarUrl(null);
+                setProfileComplete(false);
+                return;
+            }
+
+            const { data: profile } = await supabase.from('profiles').select('avatar_data_url,avatar_url,first_name,last_name,username,location_country,location_city,major_field,passion_sector,bio').eq('id', u.id).single();
+            const avatar = profile?.avatar_data_url || profile?.avatar_url || null;
+            setAvatarUrl(avatar || null);
+
+            const filled = Boolean(
+                (profile && (
+                    profile.username || profile.first_name || profile.avatar_data_url || profile.location_country || profile.location_city || profile.major_field || profile.passion_sector || profile.bio
+                ))
+            );
+            setProfileComplete(filled);
+        } catch (err) {
+            console.warn('Failed to fetch profile', err);
+            setProfileComplete(false);
+        }
+    };
 
     useEffect(() => {
         let mounted = true;
         (async () => {
-            const { data } = await supabase.auth.getUser();
-            const u = data?.user || null;
             if (!mounted) return;
-            setUser(u);
-            if (u) {
-                const { data: profile } = await supabase.from('profiles').select('avatar_data_url,avatar_url').eq('id', u.id).single();
-                const avatar = profile?.avatar_data_url || profile?.avatar_url || null;
-                if (avatar) setAvatarUrl(avatar);
-            }
+            await refetchProfile();
         })();
         return () => { mounted = false; };
     }, []);
@@ -81,10 +102,12 @@ export default function HomePage() {
                         {t('mission_text')}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4">
-                        <button onClick={() => setShowRegistration(true)} className="inline-flex items-center justify-center bg-[#1e40af] hover:bg-[#3730a3] text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
-                            {t('cta_signup')}
-                            <ArrowRight size={20} className={`ms-2 rtl:me-2`} />
-                        </button>
+                        {( !user || !profileComplete ) && (
+                            <button onClick={() => setShowRegistration(true)} className="inline-flex items-center justify-center bg-[#1e40af] hover:bg-[#3730a3] text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
+                                {t('cta_signup')}
+                                <ArrowRight size={20} className={`ms-2 rtl:me-2`} />
+                            </button>
+                        )}
                         <Link href="/profile/mock-id-123" passHref>
                             <span className="inline-flex items-center justify-center bg-white text-[#1e40af] border-2 border-[#1e40af] font-semibold py-3 px-8 rounded-full transition duration-300 hover:bg-gray-100">
                                 {t('cta_sample')}
@@ -93,7 +116,7 @@ export default function HomePage() {
                     </div>
 
                     {showRegistration && (
-                        <ProfileRegistrationForm onClose={() => setShowRegistration(false)} />
+                        <ProfileRegistrationForm onClose={() => setShowRegistration(false)} onSaved={async () => { await refetchProfile(); }} />
                     )}
                 </section>
 

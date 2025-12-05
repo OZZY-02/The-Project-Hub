@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import supabase from '../lib/supabaseClient';
 import Link from 'next/link';
 
-export default function ProfileRegistrationForm({ onClose }: { onClose?: () => void }) {
+export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?: () => void, onSaved?: () => void }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [username, setUsername] = useState('');
@@ -101,6 +101,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
 
             setMessage('Profile saved successfully.');
             setLoading(false);
+            if (onSaved) onSaved();
             if (onClose) onClose();
         } catch (err: any) {
             console.error('Error saving profile:', err);
