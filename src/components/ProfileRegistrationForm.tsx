@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import supabase from '../lib/supabaseClient';
+import countries from '../data/countries';
+import cities from '../data/cities';
 import Link from 'next/link';
 
 export default function ProfileRegistrationForm({ onClose }: { onClose?: () => void }) {
@@ -85,12 +87,9 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             className="w-full border p-2 rounded text-gray-900"
                         />
                         <datalist id="country-list">
-                            <option value="Egypt" />
-                            <option value="Sudan" />
-                            <option value="United States" />
-                            <option value="United Kingdom" />
-                            <option value="Canada" />
-                            <option value="Australia" />
+                            {countries.map((c) => (
+                                <option key={c} value={c} />
+                            ))}
                         </datalist>
                     </div>
 
@@ -104,12 +103,9 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             className="w-full border p-2 rounded text-gray-900"
                         />
                         <datalist id="city-list">
-                            <option value="Cairo" />
-                            <option value="Khartoum" />
-                            <option value="Alexandria" />
-                            <option value="Port Said" />
-                            <option value="Omdurman" />
-                            <option value="Khartoum North" />
+                            {cities.map((c) => (
+                                <option key={c} value={c} />
+                            ))}
                         </datalist>
                     </div>
 
