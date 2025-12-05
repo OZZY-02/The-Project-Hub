@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import supabase from '../lib/supabaseClient';
 import { Globe } from 'lucide-react';
 
@@ -9,26 +10,37 @@ export default function SiteHeader() {
   const [language, setLanguage] = useState<'en' | 'ar'>('en');
   const [user, setUser] = useState<any | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const router = useRouter();
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
+  const refreshProfile = async () => {
+    try {
       const { data } = await supabase.auth.getUser();
       const u = data?.user || null;
-      if (!mounted) return;
       setUser(u);
       if (u) {
         const { data: profile } = await supabase.from('profiles').select('avatar_data_url,avatar_url').eq('id', u.id).single();
         const avatar = profile?.avatar_data_url || profile?.avatar_url || null;
-        if (avatar) setAvatarUrl(avatar);
+        setAvatarUrl(avatar || null);
+      } else {
+        setAvatarUrl(null);
       }
+    } catch (err) {
+      console.warn('Failed to refresh profile', err);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!mounted) return;
+      await refreshProfile();
     })();
     return () => { mounted = false; };
   }, []);
 
   return (
     <header className="bg-white shadow-md p-4 flex justify-between items-center">
-      <h1 className="text-2xl font-bold text-[#1e40af]">The Project Hub</h1>
+      <button onClick={async () => { await refreshProfile(); router.push('/'); }} className="text-2xl font-bold text-[#1e40af] hover:opacity-80">The Project Hub</button>
 
       <div className="flex items-center gap-3">
         <button
