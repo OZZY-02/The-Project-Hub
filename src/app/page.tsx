@@ -59,8 +59,9 @@ export default function HomePage() {
             if (!mounted) return;
             setUser(u);
             if (u) {
-                const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('id', u.id).single();
-                if (profile && profile.avatar_url) setAvatarUrl(profile.avatar_url);
+                const { data: profile } = await supabase.from('profiles').select('avatar_data_url,avatar_url').eq('id', u.id).single();
+                const avatar = profile?.avatar_data_url || profile?.avatar_url || null;
+                if (avatar) setAvatarUrl(avatar);
             }
         })();
         return () => { mounted = false; };
