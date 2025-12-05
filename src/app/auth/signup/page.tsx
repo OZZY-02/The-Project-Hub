@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '../../../lib/supabaseClient';
 import Link from 'next/link';
+import { useTranslation } from '../../../lib/i18n';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -70,17 +72,17 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white shadow rounded-lg p-6">
-        <h2 className="text-2xl font-bold mb-4">Sign Up</h2>
+        <h2 className="text-2xl font-bold mb-4">{t('auth.signup.title','Sign Up')}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input required type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border rounded p-2" />
-          <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded p-2" />
-          <input required type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border rounded p-2" />
+          <input required type="text" placeholder={t('auth.username_placeholder','Username')} value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border rounded p-2" />
+          <input required type="email" placeholder={t('auth.email_placeholder','Email')} value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded p-2" />
+          <input required type="password" placeholder={t('auth.password_placeholder','Password')} value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border rounded p-2" />
           {message && <p className="text-sm text-gray-700">{message}</p>}
           <div className="flex justify-between items-center">
             <button type="submit" disabled={loading} className="bg-[#1e40af] text-white px-4 py-2 rounded">
-              {loading ? 'Signing up...' : 'Sign Up'}
+              {loading ? t('auth.signing_up','Signing up...') : t('auth.signup_button','Sign Up')}
             </button>
-            <Link href="/auth/signin" className="text-sm text-[#1e40af]">Already have an account? Sign in</Link>
+            <Link href="/auth/signin" className="text-sm text-[#1e40af]">{t('auth.already_have_account','Already have an account? Sign in')}</Link>
           </div>
         </form>
       </div>

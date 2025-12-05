@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import supabase from '../../../lib/supabaseClient';
+import { useTranslation } from '../../../lib/i18n';
 
 export default function ProfileSettingsPage() {
+    const { t } = useTranslation();
     const [user, setUser] = useState<any | null>(null);
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -193,47 +195,47 @@ export default function ProfileSettingsPage() {
     if (!user) {
         return (
             <div className="p-6">
-                <h2 className="text-xl font-bold">Profile Settings</h2>
-                <p className="mt-3">Please sign in to edit your profile settings.</p>
+                <h2 className="text-xl font-bold">{t('profile.title','Profile Settings')}</h2>
+                <p className="mt-3">{t('profile.please_sign_in','Please sign in to edit your profile settings.')}</p>
             </div>
         );
     }
 
     return (
         <div className="p-6 max-w-2xl">
-            <h2 className="text-2xl font-bold mb-3">Profile Settings</h2>
-            <p className="text-sm text-white mb-4">Account: <span className="font-medium">(hidden)</span></p>
+            <h2 className="text-2xl font-bold mb-3">{t('profile.title','Profile Settings')}</h2>
+            <p className="text-sm text-white mb-4">{t('profile.account_label','Account')}: <span className="font-medium">(hidden)</span></p>
 
             <form onSubmit={handleSave} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium">First name</label>
+                    <label className="block text-sm font-medium">{t('profile.first_name','First name')}</label>
                     <input value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full border p-2 rounded" />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Last name</label>
+                    <label className="block text-sm font-medium">{t('profile.last_name','Last name')}</label>
                     <input value={lastName} onChange={e => setLastName(e.target.value)} className="w-full border p-2 rounded" />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Username</label>
-                    <input value={username} onChange={e => setUsername(e.target.value)} placeholder="your-username" className="w-full border p-2 rounded" />
-                    <p className="text-xs text-gray-500 mt-1">Your public username (unique, case-insensitive).</p>
+                    <label className="block text-sm font-medium">{t('profile.username','Username')}</label>
+                    <input value={username} onChange={e => setUsername(e.target.value)} placeholder={t('profile.username_placeholder','your-username')} className="w-full border p-2 rounded" />
+                    <p className="text-xs text-gray-500 mt-1">{t('profile.username_hint','Your public username (unique, case-insensitive).')}</p>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Email</label>
+                    <label className="block text-sm font-medium">{t('profile.email','Email')}</label>
                     <input value={email} readOnly className="w-full border p-2 rounded bg-gray-100" />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">New password</label>
-                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to keep current" className="w-full border p-2 rounded" />
+                    <label className="block text-sm font-medium">{t('profile.new_password','New password')}</label>
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('profile.password_placeholder','Leave blank to keep current')} className="w-full border p-2 rounded" />
                 </div>
 
                 <div className="sm:grid sm:grid-cols-2 sm:gap-4">
                     <div>
-                        <label className="block text-sm font-medium">Country</label>
+                        <label className="block text-sm font-medium">{t('profile.country','Country')}</label>
                         <input list="country-list" value={locationCountry} onChange={e => { setLocationCountry(e.target.value); setLocationCity(''); }} placeholder="Start typing your country" className="w-full border p-2 rounded" />
                         <datalist id="country-list">
                             {countryOptions.map(c => <option key={c} value={c} />)}
@@ -241,7 +243,7 @@ export default function ProfileSettingsPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium">City</label>
+                        <label className="block text-sm font-medium">{t('profile.city','City')}</label>
                         <input list="city-list" value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder="Start typing your city" className="w-full border p-2 rounded" />
                         <datalist id="city-list">
                             {cityOptions.map(c => <option key={c} value={c} />)}
@@ -251,7 +253,7 @@ export default function ProfileSettingsPage() {
 
                 <div className="sm:grid sm:grid-cols-2 sm:gap-4">
                     <div>
-                        <label className="block text-sm font-medium">Major / Field</label>
+                        <label className="block text-sm font-medium">{t('profile.major_field','Major / Field')}</label>
                         <input list="major-list" value={majorField} onChange={e => setMajorField(e.target.value)} placeholder="Start typing your major" className="w-full border p-2 rounded" />
                         <datalist id="major-list">
                             <option value="Mechanical Engineering" />
@@ -279,7 +281,7 @@ export default function ProfileSettingsPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium">Passion / Sector</label>
+                        <label className="block text-sm font-medium">{t('profile.passion_sector','Passion / Sector')}</label>
                         <input list="passion-list" value={passionSector} onChange={e => setPassionSector(e.target.value)} placeholder="Start typing your passion" className="w-full border p-2 rounded" />
                         <datalist id="passion-list">
                             <option value="Education" />
@@ -297,27 +299,27 @@ export default function ProfileSettingsPage() {
 
                 <div className="flex items-center gap-3">
                     <input id="mentor" type="checkbox" checked={isMentor} onChange={e => setIsMentor(e.target.checked)} />
-                    <label htmlFor="mentor" className="text-sm">I am available as a mentor</label>
+                    <label htmlFor="mentor" className="text-sm">{t('Form.mentor_label','I am available as a mentor')}</label>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Short bio</label>
-                    <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} placeholder="Short bio (max 500 chars)" className="w-full border p-2 rounded h-28" />
+                    <label className="block text-sm font-medium">{t('profile.short_bio','Short bio')}</label>
+                    <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} placeholder={t('profile.bio_placeholder','Short bio (max 500 chars)')} className="w-full border p-2 rounded h-28" />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium">Profile picture</label>
+                    <label className="block text-sm font-medium">{t('profile.profile_picture','Profile picture')}</label>
                     <div className="flex items-center gap-4 mt-2">
                                 <div className="w-20 h-20 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
-                                        {avatarPreview ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-gray-500">No avatar</span>}
+                                        {avatarPreview ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" /> : <span className="text-xs text-gray-500">{t('profile.no_avatar','No avatar')}</span>}
                                     </div>
                         <div className="flex-1">
                             <input type="file" accept="image/*" onChange={handleFile} />
                             <div className="mt-2 flex gap-2">
-                                <button type="button" onClick={handleUploadAvatar} disabled={!avatarFile || loading} className="px-3 py-1 rounded bg-blue-600 text-white">Upload</button>
-                                <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarDataUrl); }} className="px-3 py-1 rounded border">Cancel</button>
+                                <button type="button" onClick={handleUploadAvatar} disabled={!avatarFile || loading} className="px-3 py-1 rounded bg-blue-600 text-white">{t('profile.upload_button','Upload')}</button>
+                                <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarDataUrl); }} className="px-3 py-1 rounded border">{t('Form.cancel','Cancel')}</button>
                             </div>
-                            {avatarDataUrl && <p className="text-xs text-gray-500 mt-2">Avatar saved in profile.</p>}
+                            {avatarDataUrl && <p className="text-xs text-gray-500 mt-2">{t('profile.avatar_saved','Avatar saved in profile.')}</p>}
                         </div>
                     </div>
                 </div>
@@ -325,7 +327,7 @@ export default function ProfileSettingsPage() {
                 {message && <p className="text-sm text-gray-700">{message}</p>}
 
                 <div className="flex justify-end">
-                    <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-green-600 text-white">{loading ? 'Saving...' : 'Save Settings'}</button>
+                    <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-green-600 text-white">{loading ? t('Form.saving','Saving...') : t('profile.save_button','Save Settings')}</button>
                 </div>
             </form>
         </div>

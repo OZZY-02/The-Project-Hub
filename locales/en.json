@@ -35,4 +35,42 @@
   "feature3_title": "Mentorship & Exposure",
   "feature3_desc": "Gain visibility to sponsors and mentors offering internships, resume reviews, and career insights.",
   "footer_tagline": "Empowering Sudanese Makers."
+  ,
+  "profile": {
+    "title": "Profile Settings",
+    "please_sign_in": "Please sign in to edit your profile settings.",
+    "account_label": "Account",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "username": "Username",
+    "username_placeholder": "your-username",
+    "username_hint": "Your public username (unique, case-insensitive).",
+    "email": "Email",
+    "new_password": "New password",
+    "password_placeholder": "Leave blank to keep current",
+    "country": "Country",
+    "city": "City",
+    "major_field": "Major / Field",
+    "passion_sector": "Passion / Sector",
+    "short_bio": "Short bio",
+    "bio_placeholder": "Short bio (max 500 chars)",
+    "profile_picture": "Profile picture",
+    "no_avatar": "No avatar",
+    "upload_button": "Upload",
+    "avatar_saved": "Avatar saved in profile.",
+    "save_button": "Save Settings"
+  },
+  "auth": {
+    "signup": "Sign Up",
+    "signin": "Sign In",
+    "username_placeholder": "Username",
+    "email_placeholder": "Email",
+    "password_placeholder": "Password",
+    "signup_button": "Sign Up",
+    "signin_button": "Sign In",
+    "signing_up": "Signing up...",
+    "signing_in": "Signing in...",
+    "already_have_account": "Already have an account? Sign in",
+    "create_account": "Create an account"
+  }
 }

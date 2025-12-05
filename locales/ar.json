@@ -35,4 +35,42 @@
   "feature3_title": "إرشاد وفرص عرض",
   "feature3_desc": "اكتسب رؤية للرعاة والموجهين الذين يقدمون تدريبات داخلية ومراجعات للسيرة الذاتية ورؤى مهنية.",
   "footer_tagline": "لتمكين المبدعين السودانيين."
+  ,
+  "profile": {
+    "title": "إعدادات الملف",
+    "please_sign_in": "يرجى تسجيل الدخول لتعديل إعدادات ملفك.",
+    "account_label": "الحساب",
+    "first_name": "الاسم الأول",
+    "last_name": "اسم العائلة",
+    "username": "اسم المستخدم",
+    "username_placeholder": "your-username",
+    "username_hint": "اسم المستخدم العام الخاص بك (فريد، غير حساس لحالة الحروف).",
+    "email": "البريد الإلكتروني",
+    "new_password": "كلمة المرور الجديدة",
+    "password_placeholder": "اتركه فارغاً للحفاظ على الحالي",
+    "country": "البلد",
+    "city": "المدينة",
+    "major_field": "التخصص / المجال",
+    "passion_sector": "الاهتمام / القطاع",
+    "short_bio": "نبذة قصيرة",
+    "bio_placeholder": "نبذة قصيرة (حتى 500 حرف)",
+    "profile_picture": "صورة الملف",
+    "no_avatar": "لا توجد صورة",
+    "upload_button": "تحميل",
+    "avatar_saved": "تم حفظ الصورة في الملف.",
+    "save_button": "حفظ الإعدادات"
+  },
+  "auth": {
+    "signup": "إنشاء حساب",
+    "signin": "تسجيل الدخول",
+    "username_placeholder": "اسم المستخدم",
+    "email_placeholder": "البريد الإلكتروني",
+    "password_placeholder": "كلمة المرور",
+    "signup_button": "إنشاء حساب",
+    "signin_button": "تسجيل الدخول",
+    "signing_up": "جاري إنشاء الحساب...",
+    "signing_in": "جاري تسجيل الدخول...",
+    "already_have_account": "هل لديك حساب؟ تسجيل الدخول",
+    "create_account": "إنشاء حساب"
+  }
 }
