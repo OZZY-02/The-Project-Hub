@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import supabase from '../lib/supabaseClient';
-import countries from '../data/countries';
-import cities, { citiesByCountry } from '../data/cities';
+import countriesJson from '../data/countries.json';
 import Link from 'next/link';
 
 export default function ProfileRegistrationForm({ onClose }: { onClose?: () => void }) {
@@ -11,9 +10,8 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
     const [lastName, setLastName] = useState('');
     const [locationCity, setLocationCity] = useState('');
     const [locationCountry, setLocationCountry] = useState('');
-    const [countryOptions, setCountryOptions] = useState<string[]>(countries);
-    const [countryIsoMap, setCountryIsoMap] = useState<Record<string, string>>({});
-    const [cityOptions, setCityOptions] = useState<string[]>(cities);
+    const [countryOptions, setCountryOptions] = useState<string[]>([]);
+    const [cityOptions, setCityOptions] = useState<string[]>([]);
     const [majorField, setMajorField] = useState('');
     const [passionSector, setPassionSector] = useState('');
     const [isMentor, setIsMentor] = useState(false);
@@ -64,83 +62,25 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
     };
 
     useEffect(() => {
-        // Dynamically import country-state-city on client and populate country list (exclude Israel)
-        let mounted = true;
-        (async () => {
-            try {
-                const lib = await import('country-state-city');
-                const Country = lib.Country;
-                const all = Country.getAllCountries();
-
-                const map: Record<string, string> = {};
-                const names: string[] = [];
-
-                for (const c of all) {
-                    // Skip Israel per request
-                    if (c.name === 'Israel') continue;
-                    names.push(c.name);
-                    map[c.name] = c.isoCode;
-                }
-
-                // Ensure Palestine appears in country list (manual entry)
-                if (!names.includes('Palestine')) {
-                    names.unshift('Palestine');
-                }
-
-                if (!mounted) return;
-                setCountryOptions(names);
-                setCountryIsoMap(map);
-            } catch (err) {
-                // fallback: keep static countries
-                console.warn('Could not load country-state-city library, falling back to static countries.', err);
-                setCountryOptions(countries.filter((c) => c !== 'Israel').concat('Palestine'));
-            }
-        })();
-
-        return () => { mounted = false; };
+        // Populate country options from the provided JSON, filter out Israel just in case
+        const names = Object.keys(countriesJson).filter((n) => n !== 'Israel');
+        // Ensure Palestine exists (some JSON include it already)
+        if (!names.includes('Palestine')) names.unshift('Palestine');
+        names.sort((a, b) => a.localeCompare(b));
+        setCountryOptions(names);
     }, []);
 
     useEffect(() => {
-        // when country changes, populate city suggestions from library if available
-        let mounted = true;
-        (async () => {
-            if (!locationCountry) {
-                setCityOptions([]);
-                return;
-            }
+        if (!locationCountry) {
+            setCityOptions([]);
+            return;
+        }
 
-            // Prefer manual mapping first (e.g., Palestine)
-            if (locationCountry === 'Palestine') {
-                const palCities = ['Gaza', 'Ramallah', 'Hebron', 'Nablus', 'Jenin', 'Jericho', 'East Jerusalem'];
-                setCityOptions(palCities.sort((a, b) => a.localeCompare(b)));
-                return;
-            }
-
-            const iso = countryIsoMap[locationCountry];
-            if (!iso) {
-                // fallback to curated list for the country or empty
-                const fallback = citiesByCountry[locationCountry] || [];
-                setCityOptions(fallback.slice().sort((a, b) => a.localeCompare(b)));
-                return;
-            }
-
-            try {
-                const lib = await import('country-state-city');
-                const City = lib.City;
-                const cityObjs = City.getCitiesOfCountry(iso) || [];
-                if (!mounted) return;
-                const names = cityObjs.map((c: any) => c.name).slice(0, 500);
-                const result = names.length ? names : (citiesByCountry[locationCountry] || []);
-                // sort alphabetically (case-insensitive)
-                result.sort((a: string, b: string) => a.localeCompare(b));
-                setCityOptions(result);
-            } catch (err) {
-                setCityOptions(citiesByCountry[locationCountry] || cities);
-            }
-        })();
-
-        return () => { mounted = false; };
-    }, [locationCountry, countryIsoMap]);
+        // Use the JSON mapping for cities (fallback to empty list)
+        const list = countriesJson[locationCountry] || [];
+        const sorted = Array.isArray(list) ? list.slice().sort((a: string, b: string) => a.localeCompare(b)) : [];
+        setCityOptions(sorted);
+    }, [locationCountry]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
