@@ -175,23 +175,23 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Avatar upload removed from registration; move to Profile Settings */}
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','Username')}</label>
-                        <input required value={username} onChange={e => setUsername(e.target.value)} placeholder={t('Form.name_label','Username')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('profile.username','Username')}</label>
+                        <input required value={username} onChange={e => setUsername(e.target.value)} placeholder={t('profile.username_placeholder','Username')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','First name')}</label>
-                        <input required value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t('Form.name_label','First name')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('profile.first_name','First name')}</label>
+                        <input required value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t('profile.first_name','First name')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','Last name')}</label>
-                        <input required value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t('Form.name_label','Last name')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('profile.last_name','Last name')}</label>
+                        <input required value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t('profile.last_name','Last name')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','Email')}</label>
-                        <input value={email} readOnly placeholder={t('Form.name_label','Email')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400 bg-gray-100" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('profile.email','Email')}</label>
+                        <input value={email} readOnly placeholder={t('profile.email','Email')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400 bg-gray-100" />
                     </div>
 
                     <div className="sm:col-span-1">
