@@ -105,21 +105,22 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
         let mounted = true;
         (async () => {
             if (!locationCountry) {
-                setCityOptions(cities);
+                setCityOptions([]);
                 return;
             }
 
             // Prefer manual mapping first (e.g., Palestine)
             if (locationCountry === 'Palestine') {
                 const palCities = ['Gaza', 'Ramallah', 'Hebron', 'Nablus', 'Jenin', 'Jericho', 'East Jerusalem'];
-                setCityOptions(palCities);
+                setCityOptions(palCities.sort((a, b) => a.localeCompare(b)));
                 return;
             }
 
             const iso = countryIsoMap[locationCountry];
             if (!iso) {
-                // fallback to curated list
-                setCityOptions(citiesByCountry[locationCountry] || cities);
+                // fallback to curated list for the country or empty
+                const fallback = citiesByCountry[locationCountry] || [];
+                setCityOptions(fallback.slice().sort((a, b) => a.localeCompare(b)));
                 return;
             }
 
@@ -129,7 +130,10 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 const cityObjs = City.getCitiesOfCountry(iso) || [];
                 if (!mounted) return;
                 const names = cityObjs.map((c: any) => c.name).slice(0, 500);
-                setCityOptions(names.length ? names : (citiesByCountry[locationCountry] || cities));
+                const result = names.length ? names : (citiesByCountry[locationCountry] || []);
+                // sort alphabetically (case-insensitive)
+                result.sort((a: string, b: string) => a.localeCompare(b));
+                setCityOptions(result);
             } catch (err) {
                 setCityOptions(citiesByCountry[locationCountry] || cities);
             }
