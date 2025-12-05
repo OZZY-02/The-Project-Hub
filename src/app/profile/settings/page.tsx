@@ -13,6 +13,14 @@ export default function ProfileSettingsPage() {
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
+    const [locationCountry, setLocationCountry] = useState('');
+    const [locationCity, setLocationCity] = useState('');
+    const [countryOptions, setCountryOptions] = useState<string[]>([]);
+    const [cityOptions, setCityOptions] = useState<string[]>([]);
+    const [majorField, setMajorField] = useState('');
+    const [passionSector, setPassionSector] = useState('');
+    const [isMentor, setIsMentor] = useState(false);
+    const [bio, setBio] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -25,13 +33,19 @@ export default function ProfileSettingsPage() {
 
             if (current) {
                 // try to load profile row if exists
-                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,username,avatar_data_url').eq('id', current.id).single();
+                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,username,avatar_data_url,location_country,location_city,major_field,passion_sector,is_mentor,bio').eq('id', current.id).single();
                 if (profile) {
                     setFirstName(profile.first_name || '');
                     setLastName(profile.last_name || '');
                     setUsername(profile.username || '');
                     setAvatarDataUrl(profile.avatar_data_url || null);
                     setAvatarPreview(profile.avatar_data_url || null);
+                    setLocationCountry(profile.location_country || '');
+                    setLocationCity(profile.location_city || '');
+                    setMajorField(profile.major_field || '');
+                    setPassionSector(profile.passion_sector || '');
+                    setIsMentor(Boolean(profile.is_mentor));
+                    setBio(profile.bio || '');
                 }
             }
         })();
@@ -49,6 +63,48 @@ export default function ProfileSettingsPage() {
         };
         reader.readAsDataURL(avatarFile);
     }, [avatarFile]);
+
+    useEffect(() => {
+        // fetch country list from server API
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/locations');
+                const json = await res.json();
+                if (!mounted) return;
+                const names: string[] = json.countries || [];
+                setCountryOptions(names);
+            } catch (err) {
+                console.warn('Failed to fetch countries', err);
+            }
+        })();
+
+        return () => { mounted = false; };
+    }, []);
+
+    useEffect(() => {
+        // fetch cities for selected country
+        let mounted = true;
+        (async () => {
+            if (!locationCountry) {
+                setCityOptions([]);
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/locations?country=${encodeURIComponent(locationCountry)}`);
+                const json = await res.json();
+                if (!mounted) return;
+                const list: string[] = json.cities || [];
+                setCityOptions(list);
+            } catch (err) {
+                console.warn('Failed to fetch cities for', locationCountry, err);
+                setCityOptions([]);
+            }
+        })();
+
+        return () => { mounted = false; };
+    }, [locationCountry]);
 
     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
@@ -104,7 +160,19 @@ export default function ProfileSettingsPage() {
                 }
             }
 
-            await supabase.from('profiles').upsert({ id: user.id, first_name: firstName, last_name: lastName, username: username || null, avatar_data_url: avatarDataUrl });
+            await supabase.from('profiles').upsert({
+                id: user.id,
+                first_name: firstName,
+                last_name: lastName,
+                username: username || null,
+                avatar_data_url: avatarDataUrl,
+                location_country: locationCountry || null,
+                location_city: locationCity || null,
+                major_field: majorField || null,
+                passion_sector: passionSector || null,
+                is_mentor: isMentor,
+                bio: bio || null,
+            });
 
             // update password if provided
             if (password) {
@@ -160,6 +228,80 @@ export default function ProfileSettingsPage() {
                 <div>
                     <label className="block text-sm font-medium">New password</label>
                     <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to keep current" className="w-full border p-2 rounded" />
+                </div>
+
+                <div className="sm:grid sm:grid-cols-2 sm:gap-4">
+                    <div>
+                        <label className="block text-sm font-medium">Country</label>
+                        <input list="country-list" value={locationCountry} onChange={e => { setLocationCountry(e.target.value); setLocationCity(''); }} placeholder="Start typing your country" className="w-full border p-2 rounded" />
+                        <datalist id="country-list">
+                            {countryOptions.map(c => <option key={c} value={c} />)}
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium">City</label>
+                        <input list="city-list" value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder="Start typing your city" className="w-full border p-2 rounded" />
+                        <datalist id="city-list">
+                            {cityOptions.map(c => <option key={c} value={c} />)}
+                        </datalist>
+                    </div>
+                </div>
+
+                <div className="sm:grid sm:grid-cols-2 sm:gap-4">
+                    <div>
+                        <label className="block text-sm font-medium">Major / Field</label>
+                        <input list="major-list" value={majorField} onChange={e => setMajorField(e.target.value)} placeholder="Start typing your major" className="w-full border p-2 rounded" />
+                        <datalist id="major-list">
+                            <option value="Mechanical Engineering" />
+                            <option value="Software Engineering" />
+                            <option value="Electrical Engineering" />
+                            <option value="Civil Engineering" />
+                            <option value="Computer Science" />
+                            <option value="Information Technology" />
+                            <option value="Marketing" />
+                            <option value="Finance" />
+                            <option value="Entrepreneurship" />
+                            <option value="Biotechnology" />
+                            <option value="Environmental Science" />
+                            <option value="Architecture" />
+                            <option value="Psychology" />
+                            <option value="Economics" />
+                            <option value="Communications" />
+                            <option value="Graphic Design" />
+                            <option value="Industrial Design" />
+                            <option value="Journalism" />
+                            <option value="Design" />
+                            <option value="Product Management" />
+                            <option value="Data Science" />
+                        </datalist>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium">Passion / Sector</label>
+                        <input list="passion-list" value={passionSector} onChange={e => setPassionSector(e.target.value)} placeholder="Start typing your passion" className="w-full border p-2 rounded" />
+                        <datalist id="passion-list">
+                            <option value="Education" />
+                            <option value="Healthcare" />
+                            <option value="Agriculture" />
+                            <option value="Fintech" />
+                            <option value="Design" />
+                            <option value="Robotics" />
+                            <option value="Electronics" />
+                            <option value="Website Design" />
+                            <option value="Architecture" />
+                        </datalist>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <input id="mentor" type="checkbox" checked={isMentor} onChange={e => setIsMentor(e.target.checked)} />
+                    <label htmlFor="mentor" className="text-sm">I am available as a mentor</label>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium">Short bio</label>
+                    <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} placeholder="Short bio (max 500 chars)" className="w-full border p-2 rounded h-28" />
                 </div>
 
                 <div>
