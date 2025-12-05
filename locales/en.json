@@ -73,4 +73,33 @@
     "already_have_account": "Already have an account? Sign in",
     "create_account": "Create an account"
   }
+  ,
+  "sample": {
+    "title": "Sample Maker Intake",
+    "resume": "Resume (PDF)",
+    "basics": "Basics",
+    "college": "College",
+    "languages": "Languages",
+    "add_language": "Add language",
+    "certifications": "Certifications",
+    "add_cert": "Add certification",
+    "skills": "Skills",
+    "add_skill": "Add skill",
+    "summary": "Short summary",
+    "projects": "Projects",
+    "add_project": "Add Project",
+    "project": "Project",
+    "remove": "Remove",
+    "project_name": "Project name",
+    "project_description": "Description",
+    "project_skills": "Skills",
+    "softwares": "Softwares",
+    "softwares_placeholder": "comma-separated",
+    "hardwares": "Hardwares",
+    "hardwares_placeholder": "comma-separated",
+    "project_images": "Project images (up to 3)",
+    "upload_images": "Upload images",
+    "save": "Save",
+    "download": "Download JSON"
+  }
 }

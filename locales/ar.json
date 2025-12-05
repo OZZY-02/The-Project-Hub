@@ -73,4 +73,33 @@
     "already_have_account": "هل لديك حساب؟ تسجيل الدخول",
     "create_account": "إنشاء حساب"
   }
+  ,
+  "sample": {
+    "title": "نموذج تعريف المبدع",
+    "resume": "السيرة الذاتية (PDF)",
+    "basics": "أساسيات",
+    "college": "الكلية",
+    "languages": "اللغات",
+    "add_language": "أضف لغة",
+    "certifications": "الشهادات",
+    "add_cert": "أضف شهادة",
+    "skills": "المهارات",
+    "add_skill": "أضف مهارة",
+    "summary": "نبذة قصيرة",
+    "projects": "المشروعات",
+    "add_project": "أضف مشروع",
+    "project": "مشروع",
+    "remove": "إزالة",
+    "project_name": "اسم المشروع",
+    "project_description": "الوصف",
+    "project_skills": "المهارات",
+    "softwares": "البرمجيات",
+    "softwares_placeholder": "مفصولة بفواصل",
+    "hardwares": "الأجهزة",
+    "hardwares_placeholder": "مفصولة بفواصل",
+    "project_images": "صور المشروع (حتى 3)",
+    "upload_images": "تحميل الصور",
+    "save": "حفظ",
+    "download": "تحميل JSON"
+  }
 }
