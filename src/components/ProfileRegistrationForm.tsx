@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import supabase from '../lib/supabaseClient';
 import Link from 'next/link';
 
 export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?: () => void, onSaved?: () => void }) {
+    const router = useRouter();
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [username, setUsername] = useState('');
@@ -104,6 +106,8 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
             try { window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile saved' } })); } catch (e) {}
             setLoading(false);
             if (onSaved) onSaved();
+            // navigate to profile settings so saved data is visible there
+            try { router.push('/profile/settings'); } catch (e) {}
             if (onClose) onClose();
         } catch (err: any) {
             console.error('Error saving profile:', err);
