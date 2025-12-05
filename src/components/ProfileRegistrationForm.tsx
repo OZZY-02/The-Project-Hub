@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import supabase from '../lib/supabaseClient';
 import countries from '../data/countries';
 import cities, { citiesByCountry } from '../data/cities';
@@ -11,6 +11,9 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
     const [lastName, setLastName] = useState('');
     const [locationCity, setLocationCity] = useState('');
     const [locationCountry, setLocationCountry] = useState('');
+    const [countryOptions, setCountryOptions] = useState<string[]>(countries);
+    const [countryIsoMap, setCountryIsoMap] = useState<Record<string, string>>({});
+    const [cityOptions, setCityOptions] = useState<string[]>(cities);
     const [majorField, setMajorField] = useState('');
     const [passionSector, setPassionSector] = useState('');
     const [isMentor, setIsMentor] = useState(false);
@@ -59,6 +62,81 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // Dynamically import country-state-city on client and populate country list (exclude Israel)
+        let mounted = true;
+        (async () => {
+            try {
+                const lib = await import('country-state-city');
+                const Country = lib.Country;
+                const all = Country.getAllCountries();
+
+                const map: Record<string, string> = {};
+                const names: string[] = [];
+
+                for (const c of all) {
+                    // Skip Israel per request
+                    if (c.name === 'Israel') continue;
+                    names.push(c.name);
+                    map[c.name] = c.isoCode;
+                }
+
+                // Ensure Palestine appears in country list (manual entry)
+                if (!names.includes('Palestine')) {
+                    names.unshift('Palestine');
+                }
+
+                if (!mounted) return;
+                setCountryOptions(names);
+                setCountryIsoMap(map);
+            } catch (err) {
+                // fallback: keep static countries
+                console.warn('Could not load country-state-city library, falling back to static countries.', err);
+                setCountryOptions(countries.filter((c) => c !== 'Israel').concat('Palestine'));
+            }
+        })();
+
+        return () => { mounted = false; };
+    }, []);
+
+    useEffect(() => {
+        // when country changes, populate city suggestions from library if available
+        let mounted = true;
+        (async () => {
+            if (!locationCountry) {
+                setCityOptions(cities);
+                return;
+            }
+
+            // Prefer manual mapping first (e.g., Palestine)
+            if (locationCountry === 'Palestine') {
+                const palCities = ['Gaza', 'Ramallah', 'Hebron', 'Nablus', 'Jenin', 'Jericho', 'East Jerusalem'];
+                setCityOptions(palCities);
+                return;
+            }
+
+            const iso = countryIsoMap[locationCountry];
+            if (!iso) {
+                // fallback to curated list
+                setCityOptions(citiesByCountry[locationCountry] || cities);
+                return;
+            }
+
+            try {
+                const lib = await import('country-state-city');
+                const City = lib.City;
+                const cityObjs = City.getCitiesOfCountry(iso) || [];
+                if (!mounted) return;
+                const names = cityObjs.map((c: any) => c.name).slice(0, 500);
+                setCityOptions(names.length ? names : (citiesByCountry[locationCountry] || cities));
+            } catch (err) {
+                setCityOptions(citiesByCountry[locationCountry] || cities);
+            }
+        })();
+
+        return () => { mounted = false; };
+    }, [locationCountry, countryIsoMap]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
