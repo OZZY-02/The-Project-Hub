@@ -7,6 +7,8 @@ import Link from 'next/link';
 export default function ProfileRegistrationForm({ onClose }: { onClose?: () => void }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [locationCity, setLocationCity] = useState('');
     const [locationCountry, setLocationCountry] = useState('');
     const [countryOptions, setCountryOptions] = useState<string[]>([]);
@@ -27,13 +29,18 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 const { data: userData } = await supabase.auth.getUser();
                 const user = userData?.user;
                 if (!user) return;
-                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,location_country,location_city').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,username,location_country,location_city,major_field,passion_sector,is_mentor,bio').eq('id', user.id).single();
                 if (!mounted) return;
                 if (profile) {
                     setFirstName(profile.first_name || '');
                     setLastName(profile.last_name || '');
+                    setUsername(profile.username || '');
                     setLocationCountry(profile.location_country || '');
                     setLocationCity(profile.location_city || '');
+                    setMajorField(profile.major_field || '');
+                    setPassionSector(profile.passion_sector || '');
+                    setIsMentor(Boolean(profile.is_mentor));
+                    setBio(profile.bio || '');
                 }
             } catch (err) {
                 // ignore missing profile
@@ -60,6 +67,9 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 return;
             }
 
+            // set email from auth if available
+            setEmail(user.email || '');
+
             const resolvedCity = locationCity;
 
             const profileRow: Record<string, any> = {
@@ -73,6 +83,9 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 is_mentor: isMentor,
                 bio: bio,
             };
+
+            if (username) profileRow.username = username;
+
 
             // Use upsert to create or update a profile row for the authenticated user
             const { error } = await supabase.from('profiles').upsert(profileRow);
@@ -147,6 +160,11 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Avatar upload removed from registration; move to Profile Settings */}
                     <div>
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Username</label>
+                        <input required value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                    </div>
+
+                    <div>
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">First name</label>
                         <input required value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
@@ -154,6 +172,11 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                     <div>
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Last name</label>
                         <input required value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last name" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                    </div>
+
+                    <div>
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Email</label>
+                        <input value={email} readOnly placeholder="Email" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400 bg-gray-100" />
                     </div>
 
                     <div className="sm:col-span-1">
