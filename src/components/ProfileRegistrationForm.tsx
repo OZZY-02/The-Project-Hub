@@ -9,7 +9,6 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
     const [lastName, setLastName] = useState('');
     const [locationCity, setLocationCity] = useState('');
     const [locationCountry, setLocationCountry] = useState('');
-    const [cityOther, setCityOther] = useState('');
     const [majorField, setMajorField] = useState('');
     const [passionSector, setPassionSector] = useState('');
     const [isMentor, setIsMentor] = useState(false);
@@ -32,7 +31,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 return;
             }
 
-            const resolvedCity = locationCity === 'Other' ? cityOther : locationCity;
+            const resolvedCity = locationCity;
             const profileRow = {
                 id: user.id,
                 first_name: firstName,
@@ -78,54 +77,76 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
 
                     <div className="sm:col-span-1">
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Country</label>
-                        <select value={locationCountry} onChange={e => setLocationCountry(e.target.value)} className="w-full border p-2 rounded text-gray-900">
-                            <option value="">Select country</option>
-                            <option value="Egypt">Egypt</option>
-                            <option value="Sudan">Sudan</option>
-                            <option value="United States">United States</option>
-                            <option value="United Kingdom">United Kingdom</option>
-                            <option value="Other">Other</option>
-                        </select>
+                        <input
+                            list="country-list"
+                            value={locationCountry}
+                            onChange={e => setLocationCountry(e.target.value)}
+                            placeholder="Start typing your country"
+                            className="w-full border p-2 rounded text-gray-900"
+                        />
+                        <datalist id="country-list">
+                            <option value="Egypt" />
+                            <option value="Sudan" />
+                            <option value="United States" />
+                            <option value="United Kingdom" />
+                            <option value="Canada" />
+                            <option value="Australia" />
+                        </datalist>
                     </div>
 
                     <div className="sm:col-span-1">
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">City</label>
-                        <select value={locationCity} onChange={e => setLocationCity(e.target.value)} className="w-full border p-2 rounded text-gray-900">
-                            <option value="">Select city</option>
-                            <option value="Cairo">Cairo</option>
-                            <option value="Khartoum">Khartoum</option>
-                            <option value="Alexandria">Alexandria</option>
-                            <option value="Port Said">Port Said</option>
-                            <option value="Other">Other</option>
-                        </select>
-                        {locationCity === 'Other' && (
-                            <input value={cityOther} onChange={e => setCityOther(e.target.value)} placeholder="Enter city" className="mt-2 w-full border p-2 rounded text-gray-900" />
-                        )}
+                        <input
+                            list="city-list"
+                            value={locationCity}
+                            onChange={e => setLocationCity(e.target.value)}
+                            placeholder="Start typing your city"
+                            className="w-full border p-2 rounded text-gray-900"
+                        />
+                        <datalist id="city-list">
+                            <option value="Cairo" />
+                            <option value="Khartoum" />
+                            <option value="Alexandria" />
+                            <option value="Port Said" />
+                            <option value="Omdurman" />
+                            <option value="Khartoum North" />
+                        </datalist>
                     </div>
 
                     <div>
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Major / Field</label>
-                        <select value={majorField} onChange={e => setMajorField(e.target.value)} className="w-full border p-2 rounded text-gray-900">
-                            <option value="">Select major</option>
-                            <option value="Software Engineering">Software Engineering</option>
-                            <option value="Design">Design</option>
-                            <option value="Product Management">Product Management</option>
-                            <option value="Data Science">Data Science</option>
-                            <option value="Other">Other</option>
-                        </select>
+                        <input
+                            list="major-list"
+                            value={majorField}
+                            onChange={e => setMajorField(e.target.value)}
+                            placeholder="Start typing your major"
+                            className="w-full border p-2 rounded text-gray-900"
+                        />
+                        <datalist id="major-list">
+                            <option value="Software Engineering" />
+                            <option value="Design" />
+                            <option value="Product Management" />
+                            <option value="Data Science" />
+                            <option value="Business" />
+                        </datalist>
                     </div>
 
                     <div>
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Passion / Sector</label>
-                        <select value={passionSector} onChange={e => setPassionSector(e.target.value)} className="w-full border p-2 rounded text-gray-900">
-                            <option value="">Select passion</option>
-                            <option value="Education">Education</option>
-                            <option value="Healthcare">Healthcare</option>
-                            <option value="Agriculture">Agriculture</option>
-                            <option value="Fintech">Fintech</option>
-                            <option value="Design">Design</option>
-                            <option value="Other">Other</option>
-                        </select>
+                        <input
+                            list="passion-list"
+                            value={passionSector}
+                            onChange={e => setPassionSector(e.target.value)}
+                            placeholder="Start typing your passion"
+                            className="w-full border p-2 rounded text-gray-900"
+                        />
+                        <datalist id="passion-list">
+                            <option value="Education" />
+                            <option value="Healthcare" />
+                            <option value="Agriculture" />
+                            <option value="Fintech" />
+                            <option value="Design" />
+                        </datalist>
                     </div>
 
                     <div className="flex items-center gap-2">
