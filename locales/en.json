@@ -1,0 +1,9 @@
+{
+  "Form": {
+    "title": "Welcome to The Project Hub",
+    "name_label": "Full Name",
+    "city_label": "Current City/Neighborhood",
+    "passion_label": "Core Passion/Sector",
+    "submit_button": "Create My Profile"
+  }
+}
