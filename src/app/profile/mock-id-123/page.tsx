@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { v4 as uuidv4 } from "uuid";
+// Use built-in crypto.randomUUID when available to avoid extra dependency
+
 
 import { useTranslation } from "../../../lib/i18n";
 import supabase from '../../../lib/supabaseClient';
@@ -83,8 +84,17 @@ export default function SampleMakerProfilePage() {
     reader.readAsDataURL(file);
   });
 
+  const genId = () => {
+    try {
+      // browser / node built-in
+      // @ts-ignore
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    } catch (e) {}
+    return Math.random().toString(36).slice(2, 9);
+  };
+
   const addProject = () => {
-    setProjects(prev => [...prev, { id: uuidv4(), name: '', description: '', skills: [], softwares: [], hardwares: [], images: [] }]);
+    setProjects(prev => [...prev, { id: genId(), name: '', description: '', skills: [], softwares: [], hardwares: [], images: [] }]);
   };
 
   const removeProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
