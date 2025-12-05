@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 
 import { useTranslation } from "../../../lib/i18n";
+import supabase from '../../../lib/supabaseClient';
 
 type Project = {
   id: string;
@@ -116,7 +117,26 @@ export default function SampleMakerProfilePage() {
     updateProject(id, { skills: next });
   };
 
-  const saveAll = () => {
+  const dataUrlToBlob = async (dataUrl: string) => {
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  };
+
+  const uploadDataUrlToStorage = async (path: string, dataUrl: string) => {
+    try {
+      const blob = await dataUrlToBlob(dataUrl);
+      const { data, error } = await supabase.storage.from('intakes').upload(path, blob, { cacheControl: '3600', upsert: true });
+      if (error) throw error;
+      const { data: publicData } = supabase.storage.from('intakes').getPublicUrl(path);
+      return publicData.publicUrl || null;
+    } catch (err) {
+      console.warn('Storage upload failed', err);
+      return null;
+    }
+  };
+
+  const saveAll = async () => {
+    // Prepare payload and try to persist to Supabase Storage + DB. Fall back to localStorage.
     const payload = {
       resumeFileName,
       resumeDataUrl,
@@ -128,11 +148,54 @@ export default function SampleMakerProfilePage() {
       projects,
       savedAt: new Date().toISOString(),
     };
+
+    // Attempt uploads
     try {
-      localStorage.setItem('sample_profile_intake', JSON.stringify(payload));
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile intake saved locally.' } }));
-    } catch (e) {
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Failed to save intake to localStorage.' } }));
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user || null;
+      const userId = user?.id || null;
+
+      let resume_url: string | null = null;
+      if (resumeDataUrl && resumeDataUrl.startsWith('data:')) {
+        const resumePath = `intakes/${userId || 'anon'}/${Date.now()}-resume.pdf`;
+        resume_url = await uploadDataUrlToStorage(resumePath, resumeDataUrl);
+      }
+
+      // Upload project images and replace dataUrls with public URLs when possible
+      const projectsWithUrls = [] as typeof projects;
+      for (const p of projects) {
+        const copied = { ...p, images: [...p.images] } as Project;
+        const uploadedUrls: string[] = [];
+        for (const [i, url] of p.images.entries()) {
+          if (url && url.startsWith('data:')) {
+            const imgPath = `intakes/${userId || 'anon'}/${p.id}-${i}.jpg`;
+            const publicUrl = await uploadDataUrlToStorage(imgPath, url);
+            if (publicUrl) uploadedUrls.push(publicUrl);
+            else uploadedUrls.push(url); // fallback to data url
+          } else {
+            uploadedUrls.push(url);
+          }
+        }
+        copied.images = uploadedUrls;
+        projectsWithUrls.push(copied);
+      }
+
+      const finalPayload = { ...payload, projects: projectsWithUrls, resume_url };
+
+      // Insert into DB table `profile_intakes`
+      const { error: insertError } = await supabase.from('profile_intakes').insert([{ user_id: userId, data: finalPayload, resume_url }]);
+      if (insertError) {
+        console.warn('DB insert failed, falling back to localStorage', insertError);
+        localStorage.setItem('sample_profile_intake', JSON.stringify(finalPayload));
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally (DB insert failed).' } }));
+        return;
+      }
+
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile intake saved to Supabase.' } }));
+    } catch (err) {
+      console.warn('Save all failed, falling back to localStorage', err);
+      try { localStorage.setItem('sample_profile_intake', JSON.stringify(payload)); } catch (e) {}
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally.' } }));
     }
   };
 
