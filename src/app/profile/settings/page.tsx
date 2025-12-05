@@ -133,7 +133,7 @@ export default function ProfileSettingsPage() {
     return (
         <div className="p-6 max-w-2xl">
             <h2 className="text-2xl font-bold mb-3">Profile Settings</h2>
-            <p className="text-sm text-gray-600 mb-4">Account: <span className="font-medium">(hidden)</span></p>
+            <p className="text-sm text-white mb-4">Account: <span className="font-medium">(hidden)</span></p>
 
             <form onSubmit={handleSave} className="space-y-4">
                 <div>

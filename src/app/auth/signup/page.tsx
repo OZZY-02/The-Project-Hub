@@ -9,6 +9,7 @@ export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -17,12 +18,43 @@ export default function SignupPage() {
     setLoading(true);
     setMessage(null);
 
+    // simple username validation
+    const uname = username?.trim();
+    if (!uname || uname.length < 3 || uname.length > 30) {
+      setMessage('Username must be 3-30 characters long.');
+      setLoading(false);
+      return;
+    }
+    if (!/^[a-zA-Z0-9._-]+$/.test(uname)) {
+      setMessage('Username may only contain letters, numbers, dot, underscore and hyphen.');
+      setLoading(false);
+      return;
+    }
+
+    // check uniqueness (case-insensitive)
+    try {
+      const { data: existing } = await supabase.from('profiles').select('id').ilike('username', uname);
+      if (existing && existing.length > 0) {
+        setMessage('Username already taken. Please choose another.');
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      // continue — server-side constraint will also enforce uniqueness
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
         setMessage(error.message);
         setLoading(false);
         return;
+      }
+
+      // upsert initial profile with username if user id is available
+      const userId = data?.user?.id;
+      if (userId) {
+        await supabase.from('profiles').upsert({ id: userId, username: uname });
       }
 
       setMessage('Signup successful. Check your email to confirm your account.');
@@ -40,6 +72,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md bg-white shadow rounded-lg p-6">
         <h2 className="text-2xl font-bold mb-4">Sign Up</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <input required type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full border rounded p-2" />
           <input required type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded p-2" />
           <input required type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border rounded p-2" />
           {message && <p className="text-sm text-gray-700">{message}</p>}

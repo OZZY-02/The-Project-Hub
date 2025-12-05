@@ -15,9 +15,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
     const [passionSector, setPassionSector] = useState('');
     const [isMentor, setIsMentor] = useState(false);
     const [bio, setBio] = useState('');
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    // Avatar upload removed from registration — handled in Profile Settings
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -29,14 +27,13 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 const { data: userData } = await supabase.auth.getUser();
                 const user = userData?.user;
                 if (!user) return;
-                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,avatar_url,location_country,location_city').eq('id', user.id).single();
+                const { data: profile } = await supabase.from('profiles').select('first_name,last_name,location_country,location_city').eq('id', user.id).single();
                 if (!mounted) return;
                 if (profile) {
                     setFirstName(profile.first_name || '');
                     setLastName(profile.last_name || '');
                     setLocationCountry(profile.location_country || '');
                     setLocationCity(profile.location_city || '');
-                    setAvatarUrl(profile.avatar_url || null);
                 }
             } catch (err) {
                 // ignore missing profile
@@ -46,17 +43,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
         return () => { mounted = false; };
     }, []);
 
-    useEffect(() => {
-        if (!avatarFile) return;
-        const url = URL.createObjectURL(avatarFile);
-        setAvatarPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [avatarFile]);
-
-    const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0] || null;
-        setAvatarFile(f);
-    };
+    // Avatar handling removed from registration form
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,25 +62,6 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
 
             const resolvedCity = locationCity;
 
-            // If a new avatar file was selected, upload it to Supabase Storage first
-            let finalAvatarUrl = avatarUrl;
-            if (avatarFile) {
-                try {
-                    const fileExt = avatarFile.name.split('.').pop();
-                    const filePath = `avatars/${user.id}/${Date.now()}.${fileExt}`;
-                    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true });
-                    if (uploadError) throw uploadError;
-                    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-                    finalAvatarUrl = data?.publicUrl || finalAvatarUrl;
-                    setAvatarUrl(finalAvatarUrl);
-                } catch (err: any) {
-                    console.error('Avatar upload failed', err);
-                    setMessage('Failed to upload avatar. Make sure the `avatars` storage bucket exists.');
-                    setLoading(false);
-                    return;
-                }
-            }
-
             const profileRow: Record<string, any> = {
                 id: user.id,
                 first_name: firstName,
@@ -105,8 +73,6 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 is_mentor: isMentor,
                 bio: bio,
             };
-
-            if (finalAvatarUrl) profileRow.avatar_url = finalAvatarUrl;
 
             // Use upsert to create or update a profile row for the authenticated user
             const { error } = await supabase.from('profiles').upsert(profileRow);
@@ -179,23 +145,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                 <h3 className="text-2xl font-bold mb-4">Create Your Profile</h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2 flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
-                            {avatarPreview ? (
-                                <img src={avatarPreview} alt="avatar preview" className="w-full h-full object-cover" />
-                            ) : avatarUrl ? (
-                                <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                            ) : (
-                                <span className="text-sm text-gray-500">No avatar</span>
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Profile picture (upload)</label>
-                            <input type="file" accept="image/*" onChange={handleAvatarFile} className="w-full" />
-                            <p className="text-xs text-gray-500 mt-2">Or paste image URL (optional)</p>
-                            <input value={avatarUrl || ''} onChange={e => setAvatarUrl(e.target.value)} placeholder="https://..." className="w-full border p-2 rounded text-gray-900 mt-1" />
-                        </div>
-                    </div>
+                    {/* Avatar upload removed from registration; move to Profile Settings */}
                     <div>
                         <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">First name</label>
                         <input required value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
