@@ -24,3 +24,42 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Focus outline / colored ring for all form controls */
+:root {
+  --focus-color: #1e40af; /* primary blue */
+  --focus-ring: rgba(30,64,175,0.14);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[list],
+select,
+textarea,
+button {
+  transition: box-shadow 120ms ease, border-color 120ms ease, transform 80ms ease;
+  outline: none;
+}
+
+/* Visible focus ring for keyboard users and when focusing fields */
+input:focus-visible,
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[list]:focus,
+select:focus,
+textarea:focus,
+button:focus {
+  border-color: var(--focus-color);
+  box-shadow: 0 0 0 4px var(--focus-ring);
+  transform: translateY(-1px);
+}
+
+/* Slightly stronger ring on :focus-visible for accessibility */
+:focus-visible {
+  box-shadow: 0 0 0 6px rgba(30,64,175,0.18);
+}
+
+/* Make placeholder text a bit lighter */
+::placeholder { color: #9ca3af; }
