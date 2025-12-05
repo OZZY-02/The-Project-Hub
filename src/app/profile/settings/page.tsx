@@ -147,6 +147,12 @@ export default function ProfileSettingsPage() {
                 </div>
 
                 <div>
+                    <label className="block text-sm font-medium">Username</label>
+                    <input value={username} onChange={e => setUsername(e.target.value)} placeholder="your-username" className="w-full border p-2 rounded" />
+                    <p className="text-xs text-gray-500 mt-1">Your public username (unique, case-insensitive).</p>
+                </div>
+
+                <div>
                     <label className="block text-sm font-medium">Email</label>
                     <input value={email} readOnly className="w-full border p-2 rounded bg-gray-100" />
                 </div>
