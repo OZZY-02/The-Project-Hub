@@ -36,6 +36,8 @@ export default function SampleMakerProfilePage() {
   const [summary, setSummary] = useState("");
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [generatedPortfolio, setGeneratedPortfolio] = useState<any | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const addSkill = () => {
     const s = skillInput.trim();
@@ -189,7 +191,8 @@ export default function SampleMakerProfilePage() {
         projectsWithUrls.push(copied);
       }
 
-      const finalPayload = { ...payload, projects: projectsWithUrls, resume_url };
+      const finalPayload = { ...payload, projects: projectsWithUrls, resume_url } as any;
+      if (generated) finalPayload.generated_portfolio = generated;
 
       // Insert into DB table `profile_intakes`
       const { error: insertError } = await supabase.from('profile_intakes').insert([{ user_id: userId, data: finalPayload, resume_url }]);
@@ -201,10 +204,49 @@ export default function SampleMakerProfilePage() {
       }
 
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile intake saved to Supabase.' } }));
+        // clear generated preview after save
+        setGeneratedPortfolio(null);
     } catch (err) {
       console.warn('Save all failed, falling back to localStorage', err);
       try { localStorage.setItem('sample_profile_intake', JSON.stringify(payload)); } catch (e) {}
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally.' } }));
+    }
+  };
+
+  const generateWithAI = async () => {
+    // Build same payload but without uploading images (we send data urls)
+    const payload = {
+      resumeFileName,
+      resumeDataUrl,
+      skills,
+      college,
+      certifications,
+      languages,
+      summary,
+      projects,
+      savedAt: new Date().toISOString(),
+    };
+
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/portfolio/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intake: payload }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        console.error('AI error', json);
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generation failed.' } }));
+        return;
+      }
+      setGeneratedPortfolio(json.generated || null);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generated preview ready.' } }));
+    } catch (e) {
+      console.error(e);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generation failed.' } }));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -350,8 +392,24 @@ export default function SampleMakerProfilePage() {
       </section>
 
       <div className="flex gap-3">
-        <button onClick={saveAll} className="px-4 py-2 bg-[#1e40af] text-white rounded">{t('sample.save','Save')}</button>
+        <button onClick={() => saveAll(generatedPortfolio)} className="px-4 py-2 bg-[#1e40af] text-white rounded">{t('sample.save','Save')}</button>
+        <button onClick={generateWithAI} disabled={generating} className="px-4 py-2 border rounded">{generating ? t('sample.generating','Generating...') : t('sample.customize_ai','Customize with AI')}</button>
       </div>
+
+      {generatedPortfolio && (
+        <section className="mt-4 bg-white p-4 rounded shadow">
+          <h3 className="font-semibold mb-2">{t('sample.ai_preview','AI Preview')}</h3>
+          <div className="prose max-w-none">
+            {generatedPortfolio.title && <h4>{generatedPortfolio.title}</h4>}
+            {generatedPortfolio.subtitle && <p className="italic">{generatedPortfolio.subtitle}</p>}
+            {generatedPortfolio.about && <p>{generatedPortfolio.about}</p>}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button onClick={() => saveAll(generatedPortfolio)} className="px-3 py-1 bg-green-600 text-white rounded">{t('sample.apply_generated','Save Generated')}</button>
+            <button onClick={() => setGeneratedPortfolio(null)} className="px-3 py-1 border rounded">{t('sample.dismiss','Dismiss')}</button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
