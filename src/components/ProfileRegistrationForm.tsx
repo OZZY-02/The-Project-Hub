@@ -100,6 +100,8 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
             }
 
             setMessage('Profile saved successfully.');
+            // dispatch a toast event
+            try { window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile saved' } })); } catch (e) {}
             setLoading(false);
             if (onSaved) onSaved();
             if (onClose) onClose();

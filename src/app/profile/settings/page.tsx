@@ -181,6 +181,7 @@ export default function ProfileSettingsPage() {
             }
 
             setMessage('Profile settings saved.');
+            try { window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile settings saved' } })); } catch (e) {}
         } catch (err: any) {
             console.error('Save error', err);
             setMessage(err?.message || 'Failed to save settings');

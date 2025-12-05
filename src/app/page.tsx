@@ -102,11 +102,15 @@ export default function HomePage() {
                         {t('mission_text')}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4">
-                        {( !user || !profileComplete ) && (
+                        {( !user || !profileComplete ) ? (
                             <button onClick={() => setShowRegistration(true)} className="inline-flex items-center justify-center bg-[#1e40af] hover:bg-[#3730a3] text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
                                 {t('cta_signup')}
                                 <ArrowRight size={20} className={`ms-2 rtl:me-2`} />
                             </button>
+                        ) : (
+                            <Link href="/profile/settings" className="inline-flex items-center justify-center bg-white text-[#1e40af] border-2 border-[#1e40af] font-semibold py-3 px-8 rounded-full transition duration-300 hover:bg-gray-100">
+                                Edit Profile
+                            </Link>
                         )}
                         <Link href="/profile/mock-id-123" passHref>
                             <span className="inline-flex items-center justify-center bg-white text-[#1e40af] border-2 border-[#1e40af] font-semibold py-3 px-8 rounded-full transition duration-300 hover:bg-gray-100">
