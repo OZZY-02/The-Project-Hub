@@ -87,8 +87,8 @@ export default function ProfileSettingsPage() {
         setLoading(true);
         setMessage(null);
         try {
-            // update profile row
-            await supabase.from('profiles').upsert({ id: user.id, first_name: firstName, last_name: lastName, avatar_url: avatarUrl });
+            // update profile row (store avatar as data URL)
+            await supabase.from('profiles').upsert({ id: user.id, first_name: firstName, last_name: lastName, avatar_data_url: avatarDataUrl });
 
             // update password if provided
             if (password) {
@@ -150,7 +150,7 @@ export default function ProfileSettingsPage() {
                             <input type="file" accept="image/*" onChange={handleFile} />
                             <div className="mt-2 flex gap-2">
                                 <button type="button" onClick={handleUploadAvatar} disabled={!avatarFile || loading} className="px-3 py-1 rounded bg-blue-600 text-white">Upload</button>
-                                <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarUrl); }} className="px-3 py-1 rounded border">Cancel</button>
+                                <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarDataUrl); }} className="px-3 py-1 rounded border">Cancel</button>
                             </div>
                             {avatarDataUrl && <p className="text-xs text-gray-500 mt-2">Avatar saved in profile.</p>}
                         </div>
