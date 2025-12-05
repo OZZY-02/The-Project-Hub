@@ -4,9 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '../lib/supabaseClient';
 import Link from 'next/link';
+import { useTranslation } from '../lib/i18n';
 
 export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?: () => void, onSaved?: () => void }) {
     const router = useRouter();
+    const { t } = useTranslation();
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [username, setUsername] = useState('');
@@ -168,32 +170,32 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black opacity-40" onClick={() => onClose && onClose()} />
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl z-10">
-                <h3 className="text-2xl font-bold mb-4">Create Your Profile</h3>
+                <h3 className="text-2xl font-bold mb-4">{t('Form.title', 'Create Your Profile')}</h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Avatar upload removed from registration; move to Profile Settings */}
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Username</label>
-                        <input required value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','Username')}</label>
+                        <input required value={username} onChange={e => setUsername(e.target.value)} placeholder={t('Form.name_label','Username')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">First name</label>
-                        <input required value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','First name')}</label>
+                        <input required value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t('Form.name_label','First name')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Last name</label>
-                        <input required value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last name" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','Last name')}</label>
+                        <input required value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t('Form.name_label','Last name')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400" />
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Email</label>
-                        <input value={email} readOnly placeholder="Email" className="w-full border p-2 rounded text-gray-900 placeholder-gray-400 bg-gray-100" />
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.name_label','Email')}</label>
+                        <input value={email} readOnly placeholder={t('Form.name_label','Email')} className="w-full border p-2 rounded text-gray-900 placeholder-gray-400 bg-gray-100" />
                     </div>
 
                     <div className="sm:col-span-1">
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Country</label>
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.city_label','Country')}</label>
                         <input
                             list="country-list"
                             value={locationCountry}
@@ -209,7 +211,7 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                     </div>
 
                     <div className="sm:col-span-1">
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">City</label>
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.city_label','City')}</label>
                         <input
                             list="city-list"
                             value={locationCity}
@@ -225,7 +227,7 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Major / Field</label>
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.passion_label','Major / Field')}</label>
                         <input
                             list="major-list"
                             value={majorField}
@@ -278,7 +280,7 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                     </div>
 
                     <div>
-                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">Passion / Sector</label>
+                        <label className="block text-gray-900 sm:text-gray-700 text-sm mb-1">{t('Form.passion_label','Passion / Sector')}</label>
                         <input
                             list="passion-list"
                             value={passionSector}
@@ -301,21 +303,21 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
 
                     <div className="flex items-center gap-2">
                         <input id="mentor" type="checkbox" checked={isMentor} onChange={e => setIsMentor(e.target.checked)} />
-                        <label htmlFor="mentor" className="text-gray-900 sm:text-gray-700">I am available as a mentor</label>
+                        <label htmlFor="mentor" className="text-gray-900 sm:text-gray-700">{t('Form.mentor_label','I am available as a mentor')}</label>
                     </div>
                 </div>
 
-                <textarea value={bio} onChange={e => setBio(e.target.value)} placeholder="Short bio (max 500 chars)" maxLength={500} className="border p-2 rounded w-full mt-3 h-28" />
+                <textarea value={bio} onChange={e => setBio(e.target.value)} placeholder={t('Form.submit_button','Short bio (max 500 chars)')} maxLength={500} className="border p-2 rounded w-full mt-3 h-28" />
 
                 {message && <p className="mt-3 text-sm text-gray-700">{message}</p>}
 
                 <div className="mt-4 flex items-center justify-end gap-3">
-                    <button type="button" onClick={() => onClose && onClose()} className="px-4 py-2 rounded border">Cancel</button>
-                    <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-[#1e40af] text-white">{loading ? 'Saving...' : 'Save Profile'}</button>
+                    <button type="button" onClick={() => onClose && onClose()} className="px-4 py-2 rounded border">{t('Form.cancel','Cancel')}</button>
+                    <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-[#1e40af] text-white">{loading ? t('Form.saving','Saving...') : t('Form.submit_button','Save Profile')}</button>
                 </div>
 
                 <div className="mt-3 text-xs text-gray-500">
-                    Not signed in? <Link href="/auth/signup">Sign up / Sign in</Link>
+                    {t('Form.not_signed_in','Not signed in?')} <Link href="/auth/signup">{t('Form.signup_link','Sign up / Sign in')}</Link>
                 </div>
             </form>
         </div>

@@ -1,53 +1,17 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import ProfileRegistrationForm from '../components/ProfileRegistrationForm';
-import supabase from '../lib/supabaseClient';
-import { Globe, Users, TrendingUp, Cpu, ArrowRight } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import ProfileRegistrationForm from "../components/ProfileRegistrationForm";
+import supabase from "../lib/supabaseClient";
+import { Globe, Users, TrendingUp, Cpu, ArrowRight } from "lucide-react";
+import { useTranslation } from "../lib/i18n";
 
 export default function HomePage() {
-    const [language, setLanguage] = useState<'en' | 'ar'>('en'); 
+    const { t, locale } = useTranslation();
     const [showRegistration, setShowRegistration] = useState(false);
-    
-    // --- Mock Translations for the Homepage ---
-    const t = (key: string) => {
-        const translations: any = {
-            'en': {
-                'slogan': 'Empowering Sudan\'s Next Generation of Makers.',
-                'mission_title': 'Join The Project Hub',
-                'mission_text': 'A platform built to connect Sudanese talent in Egypt and the diaspora. Build your professional portfolio, connect with complementary skills locally, and attract global mentorship and sponsorship.',
-                'feature1_title': 'AI-Driven Portfolio',
-                'feature1_desc': 'Automatically arrange your projects, skills, and resume data into a professional, scannable online profile.',
-                'feature2_title': 'Local Team Matching',
-                'feature2_desc': 'Connect with makers and professionals in your city (starting with Egypt) who have complementary skills for your projects.',
-                'feature3_title': 'Mentorship & Exposure',
-                'feature3_desc': 'Gain visibility to sponsors and mentors offering internships, resume reviews, and career insights.',
-                'cta_signup': 'Start My Profile Now',
-                'cta_sample': 'View Sample Maker Profile',
-                'welcome': 'Welcome to The Project Hub',
-            },
-            'ar': {
-                'slogan': 'تمكين الجيل القادم من المبدعين في السودان.',
-                'mission_title': 'انضم إلى مركز المشاريع',
-                'mission_text': 'منصة مصممة لربط المواهب السودانية في مصر والمهجر. أنشئ ملفك المهني، وتواصل مع أصحاب المهارات المكملة محلياً، واجذب الإرشاد والرعاية العالمية.',
-                'feature1_title': 'ملف مهني مدعوم بالذكاء الاصطناعي',
-                'feature1_desc': 'تنظيم مشاريعك ومهاراتك وسيرتك الذاتية تلقائياً في ملف شخصي احترافي وقابل للمسح الضوئي عبر الإنترنت.',
-                'feature2_title': 'مطابقة الفرق المحلية',
-                'feature2_desc': 'تواصل مع صناع ومهنيين في مدينتك (بدءاً من مصر) يمتلكون مهارات مكملة لمشاريعك.',
-                'feature3_title': 'إرشاد وفرص عرض',
-                'feature3_desc': 'اكتسب رؤية للرعاة والموجهين الذين يقدمون تدريبات داخلية ومراجعات للسيرة الذاتية ورؤى مهنية.',
-                'cta_signup': 'ابدأ ملفي الشخصي الآن',
-                'cta_sample': 'عرض ملف تعريفي نموذجي',
-                'welcome': 'أهلاً بك في مركز المشاريع',
-            }
-        };
-        return translations[language][key] || key;
-    };
-
-    const dir = language === 'ar' ? 'rtl' : 'ltr';
-    const align = language === 'ar' ? 'text-right' : 'text-left';
-
+    const dir = locale === 'ar' ? 'rtl' : 'ltr';
+    const align = locale === 'ar' ? 'text-right' : 'text-left';
     const [user, setUser] = useState<any | null>(null);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [profileComplete, setProfileComplete] = useState(false);
@@ -104,12 +68,12 @@ export default function HomePage() {
                     <div className="flex flex-col sm:flex-row gap-4">
                         {( !user || !profileComplete ) ? (
                             <button onClick={() => setShowRegistration(true)} className="inline-flex items-center justify-center bg-[#1e40af] hover:bg-[#3730a3] text-white font-semibold py-3 px-8 rounded-full shadow-lg transition duration-300 transform hover:scale-105">
-                                {t('cta_signup')}
+                                {t('header.start_profile', 'Start My Profile Now')}
                                 <ArrowRight size={20} className={`ms-2 rtl:me-2`} />
                             </button>
                         ) : (
                             <Link href="/profile/settings" className="inline-flex items-center justify-center bg-white text-[#1e40af] border-2 border-[#1e40af] font-semibold py-3 px-8 rounded-full transition duration-300 hover:bg-gray-100">
-                                Edit Profile
+                                {t('header.edit_profile', 'Edit Profile')}
                             </Link>
                         )}
                         <Link href="/profile/mock-id-123" passHref>
@@ -126,8 +90,8 @@ export default function HomePage() {
 
                 {/* Features Section */}
                 <section className="mb-12">
-                    <h3 className={`text-3xl font-bold text-gray-800 mb-8 ${align}`}>
-                        {language === 'en' ? 'How it Works' : 'كيف يعمل'}
+                            <h3 className={`text-3xl font-bold text-gray-800 mb-8 ${align}`}>
+                        {t('mission_title', 'How it Works')}
                     </h3>
                     <div className="grid md:grid-cols-3 gap-8">
                         {/* Feature 1 */}
@@ -153,20 +117,18 @@ export default function HomePage() {
 
                 {/* Pilot Callout */}
                 <section className={`bg-gray-100 p-8 rounded-xl shadow-inner ${align}`}>
-                    <h3 className={`text-2xl font-bold text-gray-800 mb-2`}>
-                        {language === 'en' ? 'Pilot Program: Egypt Focus' : 'البرنامج التجريبي: التركيز على مصر'}
+                        <h3 className={`text-2xl font-bold text-gray-800 mb-2`}>
+                        {t('mission_title', 'Pilot Program: Egypt Focus')}
                     </h3>
                     <p className="text-gray-600">
-                        {language === 'en' 
-                            ? 'We are starting small with 100 makers in Egypt to ensure high-quality matching and support before expanding globally.' 
-                            : 'نبدأ على نطاق صغير مع 100 مبدع في مصر لضمان جودة عالية في المطابقة والدعم قبل التوسع عالمياً.'}
+                        {t('mission_text', 'We are starting small with 100 makers in Egypt to ensure high-quality matching and support before expanding globally.')}
                     </p>
                 </section>
             </main>
 
             {/* Footer */}
             <footer className="bg-gray-800 text-white p-4 text-center mt-8">
-                <p className="text-sm">&copy; {new Date().getFullYear()} The Project Hub. {language === 'en' ? 'Empowering Sudanese Makers.' : 'لتمكين المبدعين السودانيين.'}</p>
+                <p className="text-sm">&copy; {new Date().getFullYear()} The Project Hub. {locale === 'en' ? 'Empowering Sudanese Makers.' : 'لتمكين المبدعين السودانيين.'}</p>
             </footer>
         </div>
     );

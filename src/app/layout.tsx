@@ -4,6 +4,7 @@ import "./globals.css";
 import AuthGuard from "../components/AuthGuard";
 import SiteHeader from "../components/SiteHeader";
 import Toast from "../components/Toast";
+import { I18nProvider } from "../lib/i18n";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,11 +29,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SiteHeader />
-        <Toast />
-        <AuthGuard>
-          {children}
-        </AuthGuard>
+        <I18nProvider>
+          <SiteHeader />
+          <Toast />
+          <AuthGuard>
+            {children}
+          </AuthGuard>
+        </I18nProvider>
       </body>
     </html>
   );

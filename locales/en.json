@@ -4,6 +4,33 @@
     "name_label": "Full Name",
     "city_label": "Current City/Neighborhood",
     "passion_label": "Core Passion/Sector",
-    "submit_button": "Create My Profile"
+    "submit_button": "Create My Profile",
+    "mentor_label": "I am available as a mentor",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "not_signed_in": "Not signed in?",
+    "signup_link": "Sign up / Sign in"
   }
+  ,
+  "site": {
+    "title": "The Project Hub"
+  },
+  "header": {
+    "sign_in": "Sign In",
+    "sign_up": "Sign Up",
+    "edit_profile": "Edit Profile",
+    "start_profile": "Start My Profile Now",
+    "language_label_en": "English",
+    "language_label_ar": "العربية"
+  }
+  ,
+  "mission_title": "How it Works",
+  "mission_text": "A platform built to connect Sudanese talent in Egypt and the diaspora. Build your professional portfolio, connect with complementary skills locally, and attract global mentorship and sponsorship.",
+  "feature1_title": "AI-Driven Portfolio",
+  "feature1_desc": "Automatically arrange your projects, skills, and resume data into a professional, scannable online profile.",
+  "feature2_title": "Local Team Matching",
+  "feature2_desc": "Connect with makers and professionals in your city (starting with Egypt) who have complementary skills for your projects.",
+  "feature3_title": "Mentorship & Exposure",
+  "feature3_desc": "Gain visibility to sponsors and mentors offering internships, resume reviews, and career insights.",
+  "footer_tagline": "Empowering Sudanese Makers."
 }
