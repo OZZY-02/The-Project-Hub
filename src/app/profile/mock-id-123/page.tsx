@@ -166,6 +166,13 @@ export default function SampleMakerProfilePage() {
       const user = userData?.user || null;
       const userId = user?.id || null;
 
+      // If user is not authenticated, do not attempt DB insert (will fail under RLS).
+      if (!userId) {
+        try { localStorage.setItem('sample_profile_intake', JSON.stringify(finalPayload)); } catch (e) {}
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally. Sign in to persist to Supabase.' } }));
+        return;
+      }
+
       let resume_url: string | null = null;
       if (resumeDataUrl && resumeDataUrl.startsWith('data:')) {
         const resumePath = `intakes/${userId || 'anon'}/${Date.now()}-resume.pdf`;
@@ -197,9 +204,12 @@ export default function SampleMakerProfilePage() {
       // Insert into DB table `profile_intakes`
       const { error: insertError } = await supabase.from('profile_intakes').insert([{ user_id: userId, data: finalPayload, resume_url }]);
       if (insertError) {
-        console.warn('DB insert failed, falling back to localStorage', insertError);
-        localStorage.setItem('sample_profile_intake', JSON.stringify(finalPayload));
-        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally (DB insert failed).' } }));
+        console.error('DB insert failed, falling back to localStorage', insertError);
+        try { localStorage.setItem('sample_profile_intake', JSON.stringify(finalPayload)); } catch (e) {}
+        const msg = insertError.message || insertError.details || JSON.stringify(insertError);
+        // Show a concise toast but log full error to console for debugging
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: `Saved locally (DB insert failed). See console for details.` } }));
+        console.error('Supabase insert error detail:', insertError);
         return;
       }
 
