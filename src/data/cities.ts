@@ -26,7 +26,6 @@ const cities = [
   "Amman",
   "Beirut",
   "Jerusalem",
-  "Tel Aviv",
   "Rabat",
   "Casablanca",
   "Tunis",
@@ -224,5 +223,26 @@ const cities = [
   "Sana'a",
   "Muscat",
 ];
+
+// Map of countries to suggested cities (keys match names used in `countries.ts`)
+export const citiesByCountry: Record<string, string[]> = {
+  Egypt: ["Cairo", "Alexandria", "Giza", "Luxor", "Aswan", "Suez", "Port Said"],
+  Sudan: ["Khartoum", "Omdurman", "Port Sudan", "Wad Madani"],
+  "United States of America": ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "San Francisco", "San Diego", "San Jose", "Seattle", "Miami"],
+  "United Kingdom": ["London", "Manchester", "Birmingham", "Glasgow", "Edinburgh"],
+  Canada: ["Toronto", "Montreal", "Vancouver", "Calgary", "Ottawa"],
+  Australia: ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide"],
+  India: ["New Delhi", "Mumbai", "Bangalore", "Chennai", "Hyderabad", "Kolkata"],
+  China: ["Beijing", "Shanghai", "Shenzhen", "Guangzhou", "Chengdu"],
+  Pakistan: ["Karachi", "Lahore", "Islamabad", "Rawalpindi"],
+  "United Arab Emirates": ["Dubai", "Abu Dhabi", "Sharjah"],
+  "Saudi Arabia": ["Riyadh", "Jeddah", "Dammam"],
+  Nigeria: ["Lagos", "Abuja", "Kano"],
+  "South Africa": ["Johannesburg", "Cape Town", "Durban"],
+  Brazil: ["Sao Paulo", "Rio de Janeiro", "Brasilia"],
+  Mexico: ["Mexico City", "Guadalajara", "Monterrey"],
+  France: ["Paris", "Lyon", "Marseille"],
+  Germany: ["Berlin", "Hamburg", "Munich"],
+};
 
 export default cities;

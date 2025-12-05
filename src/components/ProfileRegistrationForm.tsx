@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import supabase from '../lib/supabaseClient';
 import countries from '../data/countries';
-import cities from '../data/cities';
+import cities, { citiesByCountry } from '../data/cities';
 import Link from 'next/link';
 
 export default function ProfileRegistrationForm({ onClose }: { onClose?: () => void }) {
@@ -82,7 +82,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                         <input
                             list="country-list"
                             value={locationCountry}
-                            onChange={e => setLocationCountry(e.target.value)}
+                            onChange={e => { setLocationCountry(e.target.value); setLocationCity(''); }}
                             placeholder="Start typing your country"
                             className="w-full border p-2 rounded text-gray-900"
                         />
@@ -103,7 +103,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             className="w-full border p-2 rounded text-gray-900"
                         />
                         <datalist id="city-list">
-                            {cities.map((c) => (
+                            {(locationCountry && citiesByCountry[locationCountry] ? citiesByCountry[locationCountry] : cities).map((c) => (
                                 <option key={c} value={c} />
                             ))}
                         </datalist>
@@ -119,7 +119,42 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             className="w-full border p-2 rounded text-gray-900"
                         />
                         <datalist id="major-list">
+                            <option value="Mechanical Engineering" />
                             <option value="Software Engineering" />
+                            <option value="Electrical Engineering" />
+                            <option value="Civil Engineering" />
+                            <option value="Computer Science" />
+                            <option value="Information Technology" />
+                            <option value="Marketing" />
+                            <option value="Finance" />
+                            <option value="Entrepreneurship" />
+                            <option value="Biotechnology" />
+                            <option value="Environmental Science" />
+                            <option value="Architecture" />
+                            <option value="Psychology" />
+                            <option value="Economics" />
+                            <option value="Communications" />
+                            <option value="Graphic Design" />
+                            <option value="Industrial Design" />
+                            <option value="Civil Rights" />
+                            <option value="Journalism" />
+                            <option value="Film Studies" />
+                            <option value="Music" />
+                            <option value="Theater" />
+                            <option value="Nursing" />
+                            <option value="Medicine" />
+                            <option value="Pharmacy" />
+                            <option value="Law" />
+                            <option value="Education" />
+                            <option value="Social Work" />
+                            <option value="Anthropology" />
+                            <option value="History" />
+                            <option value="Political Science" />
+                            <option value="Sociology" />
+                            <option value="Mathematics" />
+                            <option value="Physics" />
+                            <option value="Chemistry" />
+                            <option value="Biology" />
                             <option value="Design" />
                             <option value="Product Management" />
                             <option value="Data Science" />
@@ -142,6 +177,10 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             <option value="Agriculture" />
                             <option value="Fintech" />
                             <option value="Design" />
+                            <option value="Robotics" />
+                            <option value="Electronics" />
+                            <option value="Website Design" />
+                            <option value="Architecture" />
                         </datalist>
                     </div>
 
