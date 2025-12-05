@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import supabase from '../lib/supabaseClient';
-import countriesJson from '../data/countries.json';
 import Link from 'next/link';
 
 export default function ProfileRegistrationForm({ onClose }: { onClose?: () => void }) {
@@ -62,24 +61,45 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
     };
 
     useEffect(() => {
-        // Populate country options from the provided JSON, filter out Israel just in case
-        const names = Object.keys(countriesJson).filter((n) => n !== 'Israel');
-        // Ensure Palestine exists (some JSON include it already)
-        if (!names.includes('Palestine')) names.unshift('Palestine');
-        names.sort((a, b) => a.localeCompare(b));
-        setCountryOptions(names);
+        // fetch country list from server API
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/locations');
+                const json = await res.json();
+                if (!mounted) return;
+                const names: string[] = json.countries || [];
+                setCountryOptions(names);
+            } catch (err) {
+                console.warn('Failed to fetch countries', err);
+            }
+        })();
+
+        return () => { mounted = false; };
     }, []);
 
     useEffect(() => {
-        if (!locationCountry) {
-            setCityOptions([]);
-            return;
-        }
+        // fetch cities for selected country
+        let mounted = true;
+        (async () => {
+            if (!locationCountry) {
+                setCityOptions([]);
+                return;
+            }
 
-        // Use the JSON mapping for cities (fallback to empty list)
-        const list = countriesJson[locationCountry] || [];
-        const sorted = Array.isArray(list) ? list.slice().sort((a: string, b: string) => a.localeCompare(b)) : [];
-        setCityOptions(sorted);
+            try {
+                const res = await fetch(`/api/locations?country=${encodeURIComponent(locationCountry)}`);
+                const json = await res.json();
+                if (!mounted) return;
+                const list: string[] = json.cities || [];
+                setCityOptions(list);
+            } catch (err) {
+                console.warn('Failed to fetch cities for', locationCountry, err);
+                setCityOptions([]);
+            }
+        })();
+
+        return () => { mounted = false; };
     }, [locationCountry]);
 
     return (
@@ -109,7 +129,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             className="w-full border p-2 rounded text-gray-900"
                         />
                         <datalist id="country-list">
-                            {countries.map((c) => (
+                            {countryOptions.map((c: string) => (
                                 <option key={c} value={c} />
                             ))}
                         </datalist>
@@ -125,7 +145,7 @@ export default function ProfileRegistrationForm({ onClose }: { onClose?: () => v
                             className="w-full border p-2 rounded text-gray-900"
                         />
                         <datalist id="city-list">
-                            {(locationCountry && citiesByCountry[locationCountry] ? citiesByCountry[locationCountry] : cities).map((c) => (
+                            {cityOptions.map((c: string) => (
                                 <option key={c} value={c} />
                             ))}
                         </datalist>
