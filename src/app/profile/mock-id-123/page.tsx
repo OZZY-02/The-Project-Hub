@@ -146,7 +146,7 @@ export default function SampleMakerProfilePage() {
     }
   };
 
-  const saveAll = async () => {
+  const saveAll = async (generated?: any) => {
     // Prepare payload and try to persist to Supabase Storage + DB. Fall back to localStorage.
     const payload = {
       resumeFileName,
