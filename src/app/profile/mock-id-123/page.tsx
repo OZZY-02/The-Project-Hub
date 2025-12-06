@@ -356,7 +356,7 @@ export default function SampleMakerProfilePage() {
   };
 
   const generateWithAI = async () => {
-    // Build userData payload matching Gemini API expectations
+    // Build userData payload matching OpenAI response expectations
     const userData = {
       first_name: '',
       last_name: '',

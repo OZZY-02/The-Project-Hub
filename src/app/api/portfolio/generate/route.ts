@@ -2,16 +2,16 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Force load .env.local to ensure GEMINI_API_KEY is available (Fix for local dev)
+// Force load .env.local to ensure OPENAI_API_KEY is available (Fix for local dev)
 try {
     dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 } catch (e) {
     console.error("Failed to load .env.local", e);
 }
 
-// This route acts as the secure intermediary between your frontend and the Gemini API.
-// NOTE: Add GEMINI_API_KEY to your .env.local and Vercel environment.
-const apiKey = process.env.GEMINI_API_KEY || "";
+// Secure intermediary between the frontend and the OpenAI Responses API.
+const apiKey = process.env.OPENAI_API_KEY || "";
+const modelId = process.env.OPENAI_MODEL_ID || "gpt-4o-mini";
 
 // Exponential Backoff for retries
 const maxRetries = 3;
@@ -40,45 +40,50 @@ async function fetchWithBackoff(url: string, options: RequestInit, retries = 0):
 
 // Define the required structured output for the portfolio summary
 const responseSchema = {
-    type: "OBJECT",
+    type: "object",
+    additionalProperties: false,
     properties: {
         professional_headline: { 
-            type: "STRING", 
+            type: "string", 
             description: "A concise, attention-grabbing professional headline (like a LinkedIn title)." 
         },
         optimized_bio: { 
-            type: "STRING", 
+            type: "string", 
             description: "A rewritten, professional summary paragraph (max 100 words) tailored to the user's goal." 
         },
         key_project_summary: {
-            type: "ARRAY",
+            type: "array",
             items: {
-                type: "OBJECT",
+                type: "object",
+                additionalProperties: false,
                 properties: {
-                    project_title: { type: "STRING" },
+                    project_title: { type: "string" },
                     summary_point_1: { 
-                        type: "STRING", 
+                        type: "string", 
                         description: "A bullet point summarizing the problem solved (S- Situation/Problem)." 
                     },
                     summary_point_2: { 
-                        type: "STRING", 
+                        type: "string", 
                         description: "A bullet point summarizing the actions taken and skills used (A- Action/Skill)." 
                     },
                     summary_point_3: { 
-                        type: "STRING", 
+                        type: "string", 
                         description: "A bullet point quantifying the result or impact (R- Result/Impact)." 
                     }
-                }
-            },
+                },
+                required: ["project_title", "summary_point_1", "summary_point_2", "summary_point_3"]
+            }
         },
         visual_style: {
-            type: "OBJECT",
+            type: "object",
+            additionalProperties: false,
             properties: {
-                theme_color: { type: "STRING", description: "A primary hex color code (e.g. #1e40af) that matches the user's professional vibe." },
-                background_gradient_start: { type: "STRING", description: "Start color for background gradient." },
-                background_gradient_end: { type: "STRING", description: "End color for background gradient." },
-                font_style: { type: "STRING", description: "Suggested font style: 'modern', 'classic', 'tech', or 'playful'." }
-            }
+                theme_color: { type: "string", description: "A primary hex color code (e.g. #1e40af) that matches the user's professional vibe." },
+                background_gradient_start: { type: "string", description: "Start color for background gradient." },
+                background_gradient_end: { type: "string", description: "End color for background gradient." },
+                font_style: { type: "string", description: "Suggested font style: 'modern', 'classic', 'tech', or 'playful'." }
+            },
+            required: ["theme_color", "background_gradient_start", "background_gradient_end", "font_style"]
         }
     },
     required: ["professional_headline", "optimized_bio", "key_project_summary", "visual_style"]
@@ -87,7 +92,7 @@ const responseSchema = {
 
 export async function POST(request: Request) {
     if (!apiKey) {
-        return NextResponse.json({ success: false, message: "Missing GEMINI_API_KEY" }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Missing OPENAI_API_KEY" }, { status: 500 });
     }
 
     try {
@@ -123,41 +128,75 @@ export async function POST(request: Request) {
         `;
         
         // --- 2. Construct the API payload for structured output ---
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        
+        const apiUrl = "https://api.openai.com/v1/responses";
+
         const payload = {
-            contents: [{ parts: [{ text: userQuery }] }],
-            systemInstruction: {
-                parts: [{ text: systemPrompt }]
-            },
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema
+            model: modelId,
+            instructions: systemPrompt,
+            input: [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "text",
+                            text: userQuery
+                        }
+                    ]
+                }
+            ],
+            response_format: {
+                type: "json_schema",
+                json_schema: {
+                    name: "portfolio_schema",
+                    schema: responseSchema,
+                    strict: true
+                }
             }
         };
 
-        // --- 3. Call the Gemini API ---
+        // --- 3. Call the OpenAI Responses API ---
         const response = await fetchWithBackoff(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
             body: JSON.stringify(payload)
         });
 
         const result = await response.json();
 
-        if (result.candidates && result.candidates.length > 0) {
-            const jsonText = result.candidates[0].content.parts[0].text;
-            const parsedJson = JSON.parse(jsonText);
-            
-            // Return the structured portfolio data to the frontend
-            return NextResponse.json({ success: true, portfolio: parsedJson }, { status: 200 });
+        if (result.error) {
+            console.error('OpenAI API error:', result.error);
+            return NextResponse.json({ success: false, message: "AI generation failed.", detail: result.error }, { status: 500 });
         }
 
-        console.error('Gemini API returned no candidates:', result);
-        return NextResponse.json({ success: false, message: "AI generation failed or returned no candidates.", detail: result }, { status: 500 });
+        const outputText = (result.output || [])
+            .flatMap((item: any) =>
+                (item.content || [])
+                    .filter((part: any) => part.type === 'output_text')
+                    .map((part: any) => part.text)
+            )
+            .join('\n')
+            .trim();
+
+        if (!outputText) {
+            console.error('OpenAI API returned no usable content:', result);
+            return NextResponse.json({ success: false, message: "AI generation returned empty content.", detail: result }, { status: 500 });
+        }
+
+        let parsedJson;
+        try {
+            parsedJson = JSON.parse(outputText);
+        } catch (parseError) {
+            console.error('Failed to parse OpenAI JSON response:', parseError, outputText);
+            return NextResponse.json({ success: false, message: "AI returned invalid JSON.", detail: String(parseError) }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true, portfolio: parsedJson }, { status: 200 });
 
     } catch (error: any) {
-        console.error("Gemini API Error:", error);
+        console.error("OpenAI API Error:", error);
         return NextResponse.json({ success: false, message: "Internal server error during AI processing.", detail: String(error) }, { status: 500 });
     }
 }
