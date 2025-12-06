@@ -391,7 +391,24 @@ export default function SampleMakerProfilePage() {
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium">{t('sample.tools_used','Tools Used (software, hardware, etc.)')}</label>
-                  <input value={p.toolsUsed.join(', ')} onChange={e => updateProject(p.id, { toolsUsed: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full border p-2 rounded" placeholder={t('sample.tools_used_placeholder','comma-separated')} />
+                  <input placeholder={t('sample.add_tool','Add tool')} onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val && !p.toolsUsed.includes(val)) {
+                        updateProject(p.id, { toolsUsed: [...p.toolsUsed, val] });
+                      }
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }} className="w-full border p-2 rounded" />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {p.toolsUsed.map(tool => (
+                      <span key={tool} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
+                        <span className="text-sm">{tool}</span>
+                        <button onClick={() => updateProject(p.id, { toolsUsed: p.toolsUsed.filter(t => t !== tool) })} className="text-xs text-red-500">×</button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
