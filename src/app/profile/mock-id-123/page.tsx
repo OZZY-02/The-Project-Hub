@@ -224,33 +224,44 @@ export default function SampleMakerProfilePage() {
   };
 
   const generateWithAI = async () => {
-    // Build same payload but without uploading images (we send data urls)
-    const payload = {
-      resumeFileName,
-      resumeDataUrl,
-      skills,
+    // Build userData payload matching Gemini API expectations
+    const userData = {
+      first_name: '',
+      last_name: '',
       college,
-      certifications,
-      languages,
-      summary,
-      projects,
-      savedAt: new Date().toISOString(),
+      major_field: '',
+      passion_sector: '',
+      skills: skills,
+      languages: languages,
+      certifications: certifications,
+      summary: summary,
+      projects: projects.map(p => ({
+        name: p.name,
+        project_title_en: p.name,
+        description: p.description,
+        description_en: p.description,
+        user_role: 'Creator',
+        tools_used: p.toolsUsed,
+        skills: p.skills,
+      })),
     };
+
+    const userGoal = 'showcase their maker skills and projects professionally';
 
     setGenerating(true);
     try {
       const res = await fetch('/api/portfolio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ intake: payload }),
+        body: JSON.stringify({ userData, userGoal }),
       });
       const json = await res.json();
-      if (!res.ok) {
+      if (!res.ok || !json.success) {
         console.error('AI error', json);
-        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generation failed.' } }));
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: json.message || 'AI generation failed.' } }));
         return;
       }
-      setGeneratedPortfolio(json.generated || null);
+      setGeneratedPortfolio(json.portfolio || null);
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generated preview ready.' } }));
     } catch (e) {
       console.error(e);
@@ -410,9 +421,23 @@ export default function SampleMakerProfilePage() {
         <section className="mt-4 bg-white p-4 rounded shadow">
           <h3 className="font-semibold mb-2">{t('sample.ai_preview','AI Preview')}</h3>
           <div className="prose max-w-none">
-            {generatedPortfolio.title && <h4>{generatedPortfolio.title}</h4>}
-            {generatedPortfolio.subtitle && <p className="italic">{generatedPortfolio.subtitle}</p>}
-            {generatedPortfolio.about && <p>{generatedPortfolio.about}</p>}
+            {generatedPortfolio.professional_headline && <h4 className="text-lg font-bold">{generatedPortfolio.professional_headline}</h4>}
+            {generatedPortfolio.optimized_bio && <p className="mt-2 text-gray-700">{generatedPortfolio.optimized_bio}</p>}
+            {generatedPortfolio.key_project_summary && generatedPortfolio.key_project_summary.length > 0 && (
+              <div className="mt-4">
+                <h5 className="font-semibold">{t('sample.projects','Projects')}</h5>
+                {generatedPortfolio.key_project_summary.map((proj: any, idx: number) => (
+                  <div key={idx} className="mt-2 border-l-2 border-blue-500 pl-3">
+                    <p className="font-medium">{proj.project_title}</p>
+                    <ul className="list-disc ml-5 text-sm text-gray-600">
+                      {proj.summary_point_1 && <li>{proj.summary_point_1}</li>}
+                      {proj.summary_point_2 && <li>{proj.summary_point_2}</li>}
+                      {proj.summary_point_3 && <li>{proj.summary_point_3}</li>}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="mt-3 flex gap-2">
             <button onClick={() => saveAll(generatedPortfolio)} className="px-3 py-1 bg-green-600 text-white rounded">{t('sample.apply_generated','Save Generated')}</button>

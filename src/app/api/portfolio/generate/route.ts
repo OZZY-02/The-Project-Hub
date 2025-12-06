@@ -1,78 +1,145 @@
 import { NextResponse } from 'next/server';
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
+// This route acts as the secure intermediary between your frontend and the Gemini API.
+// NOTE: Add GEMINI_API_KEY to your .env.local and Vercel environment.
+const apiKey = process.env.GEMINI_API_KEY || "";
 
-export async function POST(req: Request) {
-  if (!OPENAI_KEY) return NextResponse.json({ error: 'Missing AI key' }, { status: 500 });
+// Exponential Backoff for retries
+const maxRetries = 3;
+const initialDelay = 1000;
 
-  const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ error: 'Missing body' }, { status: 400 });
-
-  const intake = body.intake || body;
-  const language = (intake?.language || 'en').startsWith('ar') ? 'ar' : 'en';
-
-  const systemPrompt = `You are a portfolio generator. Given the JSON intake, produce a JSON object matching this schema exactly (no extra text):
-{
-  "title": "", 
-  "subtitle": "",
-  "about": "",
-  "projects": [{ "id":"", "title":"","blurb":"","bullets":[] }],
-  "skills_paragraph": "",
-  "tools_paragraph": "",
-  "call_to_action": "",
-  "seo_description": "",
-  "language": "en"
+async function fetchWithBackoff(url: string, options: RequestInit, retries = 0): Promise<Response> {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok && retries < maxRetries) {
+            const delay = initialDelay * Math.pow(2, retries);
+            console.warn(`API call failed with status ${response.status}. Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchWithBackoff(url, options, retries + 1);
+        }
+        return response;
+    } catch (error) {
+        if (retries < maxRetries) {
+            const delay = initialDelay * Math.pow(2, retries);
+            console.warn(`API call failed: ${error}. Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return fetchWithBackoff(url, options, retries + 1);
+        }
+        throw new Error(`API call failed after ${maxRetries} attempts.`);
+    }
 }
 
-Return only the JSON. Keep text concise (1-3 sentences per field), and generate content in the requested language (${language}).`;
+// Define the required structured output for the portfolio summary
+const responseSchema = {
+    type: "OBJECT",
+    properties: {
+        professional_headline: { 
+            type: "STRING", 
+            description: "A concise, attention-grabbing professional headline (like a LinkedIn title)." 
+        },
+        optimized_bio: { 
+            type: "STRING", 
+            description: "A rewritten, professional summary paragraph (max 100 words) tailored to the user's goal." 
+        },
+        key_project_summary: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    project_title: { type: "STRING" },
+                    summary_point_1: { 
+                        type: "STRING", 
+                        description: "A bullet point summarizing the problem solved (S- Situation/Problem)." 
+                    },
+                    summary_point_2: { 
+                        type: "STRING", 
+                        description: "A bullet point summarizing the actions taken and skills used (A- Action/Skill)." 
+                    },
+                    summary_point_3: { 
+                        type: "STRING", 
+                        description: "A bullet point quantifying the result or impact (R- Result/Impact)." 
+                    }
+                }
+            }
+        }
+    },
+    required: ["professional_headline", "optimized_bio", "key_project_summary"]
+};
 
-  const userPrompt = `Intake JSON:\n${JSON.stringify(intake)}\nTone: friendly, concise.`;
 
-  try {
-    const payload = {
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      max_tokens: 600,
-      temperature: 0.7,
-    };
-
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!resp.ok) {
-      const txt = await resp.text();
-      return NextResponse.json({ error: 'AI provider error', detail: txt }, { status: 502 });
+export async function POST(request: Request) {
+    if (!apiKey) {
+        return NextResponse.json({ success: false, message: "Missing GEMINI_API_KEY" }, { status: 500 });
     }
 
-    const j = await resp.json();
-    const assistant = j.choices?.[0]?.message?.content || '';
-
-    // Try parse JSON strictly, but allow extracting substring if needed
-    let generated = null;
     try {
-      generated = JSON.parse(assistant);
-    } catch (e) {
-      const first = assistant.indexOf('{');
-      const last = assistant.lastIndexOf('}');
-      if (first !== -1 && last !== -1) {
-        const sub = assistant.slice(first, last + 1);
-        try { generated = JSON.parse(sub); } catch (err) { /* fallthrough */ }
-      }
+        const { userData, userGoal } = await request.json();
+
+        if (!userData) {
+            return NextResponse.json({ success: false, message: "Missing userData in request body" }, { status: 400 });
+        }
+
+        // --- 1. Construct the detailed prompt ---
+        const userProjects = (userData.projects || []).map((p: any) => 
+            `Project Title: ${p.name || p.project_title_en || 'Untitled'}. Role: ${p.user_role || 'Creator'}. Description: ${p.description || p.description_en || ''}`
+        ).join('\n---\n');
+
+        const userSkills = (userData.skills || []).map((s: any) => 
+            typeof s === 'string' ? s : `${s.skill_name} (${s.proficiency_level || 3}/5)`
+        ).join(', ');
+
+        const systemPrompt = `You are a world-class career coach and professional portfolio writer. Your goal is to analyze the provided maker data and rewrite the profile sections to be highly professional, impactful, and focused on the user's stated goal: '${userGoal || 'showcase their work'}'. 
+        Follow the STAR method (Situation, Task, Action, Result) for project summaries and ensure the final output is provided ONLY in the specified JSON schema. Do not include any introductory or conversational text outside of the JSON block.`;
+
+        const userQuery = `
+            Analyze the following maker's data and generate a custom portfolio:
+            - Name: ${userData.first_name || ''} ${userData.last_name || ''}
+            - College: ${userData.college || ''}
+            - Major/Passion: ${userData.major_field || ''} in ${userData.passion_sector || ''}
+            - Current Skills: ${userSkills || userData.skills?.join(', ') || 'Not specified'}
+            - Languages: ${(userData.languages || []).join(', ') || 'Not specified'}
+            - Certifications: ${(userData.certifications || []).join(', ') || 'None'}
+            - Summary: ${userData.summary || 'No summary provided'}
+            - Projects (Re-summarize these using the STAR method in 3 points each):
+            ${userProjects || 'No projects listed'}
+        `;
+        
+        // --- 2. Construct the API payload for structured output ---
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        
+        const payload = {
+            contents: [{ parts: [{ text: userQuery }] }],
+            systemInstruction: {
+                parts: [{ text: systemPrompt }]
+            },
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: responseSchema
+            }
+        };
+
+        // --- 3. Call the Gemini API ---
+        const response = await fetchWithBackoff(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.candidates && result.candidates.length > 0) {
+            const jsonText = result.candidates[0].content.parts[0].text;
+            const parsedJson = JSON.parse(jsonText);
+            
+            // Return the structured portfolio data to the frontend
+            return NextResponse.json({ success: true, portfolio: parsedJson }, { status: 200 });
+        }
+
+        console.error('Gemini API returned no candidates:', result);
+        return NextResponse.json({ success: false, message: "AI generation failed or returned no candidates.", detail: result }, { status: 500 });
+
+    } catch (error: any) {
+        console.error("Gemini API Error:", error);
+        return NextResponse.json({ success: false, message: "Internal server error during AI processing.", detail: String(error) }, { status: 500 });
     }
-
-    if (!generated) return NextResponse.json({ error: 'AI did not return valid JSON', raw: assistant }, { status: 500 });
-
-    return NextResponse.json({ generated });
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Server error', detail: String(err) }, { status: 500 });
-  }
 }
