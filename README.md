@@ -27,9 +27,9 @@ Create a `.env.local` file (Next.js automatically loads it) with the following v
 ```bash
 NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
-OPENAI_API_KEY="sk-your-openai-api-key"
-# Optional: override the default model (`gpt-4o-mini`)
-OPENAI_MODEL_ID="gpt-4o-mini"
+DEEPSEEK_API_KEY="sk-your-deepseek-key"
+# Optional: override the default model (`deepseek-chat`)
+DEEPSEEK_MODEL_ID="deepseek-chat"
 ```
 
 Restart the dev server whenever you change environment variables so the API routes pick up the new values.

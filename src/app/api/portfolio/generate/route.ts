@@ -2,16 +2,16 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Force load .env.local to ensure OPENAI_API_KEY is available (Fix for local dev)
+// Force load .env.local to ensure DEEPSEEK_API_KEY is available (Fix for local dev)
 try {
     dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 } catch (e) {
     console.error("Failed to load .env.local", e);
 }
 
-// Secure intermediary between the frontend and the OpenAI Responses API.
-const apiKey = process.env.OPENAI_API_KEY || "";
-const modelId = process.env.OPENAI_MODEL_ID || "gpt-4o-mini";
+// Secure intermediary between the frontend and the DeepSeek API.
+const apiKey = process.env.DEEPSEEK_API_KEY || "";
+const modelId = process.env.DEEPSEEK_MODEL_ID || "deepseek-chat";
 
 // Exponential Backoff for retries
 const maxRetries = 3;
@@ -89,10 +89,36 @@ const responseSchema = {
     required: ["professional_headline", "optimized_bio", "key_project_summary", "visual_style"]
 };
 
+function extractJson(text: string): string | null {
+    if (!text) return null;
+
+    // Try whole string first
+    try {
+        JSON.parse(text);
+        return text;
+    } catch (_) {
+        // ignore
+    }
+
+    const firstBrace = text.indexOf('{');
+    const lastBrace = text.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+        return null;
+    }
+
+    const candidate = text.slice(firstBrace, lastBrace + 1);
+    try {
+        JSON.parse(candidate);
+        return candidate;
+    } catch (_) {
+        return null;
+    }
+}
+
 
 export async function POST(request: Request) {
     if (!apiKey) {
-        return NextResponse.json({ success: false, message: "Missing OPENAI_API_KEY" }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Missing DEEPSEEK_API_KEY" }, { status: 500 });
     }
 
     try {
@@ -128,33 +154,21 @@ export async function POST(request: Request) {
         `;
         
         // --- 2. Construct the API payload for structured output ---
-        const apiUrl = "https://api.openai.com/v1/responses";
+        const apiUrl = "https://api.deepseek.com/v1/chat/completions";
+
+        const jsonSchemaString = JSON.stringify(responseSchema, null, 2);
+        const strictPrompt = `${systemPrompt}\n\nYou must output ONLY valid JSON following this schema and nothing else. If data is missing, use empty strings or arrays. Schema: ${jsonSchemaString}`;
 
         const payload = {
             model: modelId,
-            instructions: systemPrompt,
-            input: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "text",
-                            text: userQuery
-                        }
-                    ]
-                }
-            ],
-            response_format: {
-                type: "json_schema",
-                json_schema: {
-                    name: "portfolio_schema",
-                    schema: responseSchema,
-                    strict: true
-                }
-            }
+            temperature: 0.6,
+            messages: [
+                { role: 'system', content: strictPrompt },
+                { role: 'user', content: userQuery }
+            ]
         };
 
-        // --- 3. Call the OpenAI Responses API ---
+        // --- 3. Call the DeepSeek API ---
         const response = await fetchWithBackoff(apiUrl, {
             method: 'POST',
             headers: { 
@@ -165,38 +179,31 @@ export async function POST(request: Request) {
         });
 
         const result = await response.json();
-
         if (result.error) {
-            console.error('OpenAI API error:', result.error);
+            console.error('DeepSeek API error:', result.error);
             return NextResponse.json({ success: false, message: "AI generation failed.", detail: result.error }, { status: 500 });
         }
 
-        const outputText = (result.output || [])
-            .flatMap((item: any) =>
-                (item.content || [])
-                    .filter((part: any) => part.type === 'output_text')
-                    .map((part: any) => part.text)
-            )
-            .join('\n')
-            .trim();
+        const outputText = result?.choices?.[0]?.message?.content?.trim?.();
+        const jsonText = extractJson(outputText || '');
 
-        if (!outputText) {
-            console.error('OpenAI API returned no usable content:', result);
-            return NextResponse.json({ success: false, message: "AI generation returned empty content.", detail: result }, { status: 500 });
+        if (!jsonText) {
+            console.error('DeepSeek API returned non-JSON content:', outputText);
+            return NextResponse.json({ success: false, message: "AI generation returned unreadable content.", detail: outputText }, { status: 500 });
         }
 
         let parsedJson;
         try {
-            parsedJson = JSON.parse(outputText);
+            parsedJson = JSON.parse(jsonText);
         } catch (parseError) {
-            console.error('Failed to parse OpenAI JSON response:', parseError, outputText);
+            console.error('Failed to parse DeepSeek JSON response:', parseError, jsonText);
             return NextResponse.json({ success: false, message: "AI returned invalid JSON.", detail: String(parseError) }, { status: 500 });
         }
 
         return NextResponse.json({ success: true, portfolio: parsedJson }, { status: 200 });
 
     } catch (error: any) {
-        console.error("OpenAI API Error:", error);
+        console.error("DeepSeek API Error:", error);
         return NextResponse.json({ success: false, message: "Internal server error during AI processing.", detail: String(error) }, { status: 500 });
     }
 }

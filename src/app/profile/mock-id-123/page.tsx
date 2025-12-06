@@ -356,7 +356,7 @@ export default function SampleMakerProfilePage() {
   };
 
   const generateWithAI = async () => {
-    // Build userData payload matching OpenAI response expectations
+    // Build userData payload matching DeepSeek response expectations
     const userData = {
       first_name: '',
       last_name: '',
