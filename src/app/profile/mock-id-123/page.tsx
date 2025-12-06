@@ -41,6 +41,9 @@ export default function SampleMakerProfilePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [generatedPortfolio, setGeneratedPortfolio] = useState<any | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [portfolioImage, setPortfolioImage] = useState<string | null>(null);
+  const [renderingImage, setRenderingImage] = useState(false);
+  const [userName, setUserName] = useState("");
 
   // Load existing intake data on mount
   useEffect(() => {
@@ -74,6 +77,7 @@ export default function SampleMakerProfilePage() {
             setSummary(intake.summary || d.summary || '');
             setProjects(intake.projects || d.projects || []);
             setGeneratedPortfolio(intake.generated_portfolio || d.generated_portfolio || null);
+            setUserName(d.userName || '');
             setLoading(false);
             return;
           }
@@ -92,6 +96,7 @@ export default function SampleMakerProfilePage() {
           setSummary(parsed.summary || '');
           setProjects(parsed.projects || []);
           setGeneratedPortfolio(parsed.generated_portfolio || null);
+          setUserName(parsed.userName || '');
         }
       } catch (err) {
         console.warn('Failed to load intake data', err);
@@ -270,6 +275,7 @@ export default function SampleMakerProfilePage() {
       const upsertData: any = {
         user_id: userId,
         data: {
+          userName,
           resumeFileName,
           resumeDataUrl: resume_url || resumeDataUrl,
           skills,
@@ -397,6 +403,62 @@ export default function SampleMakerProfilePage() {
     }
   };
 
+  // Generate a visual portfolio image
+  const generatePortfolioImage = async () => {
+    setRenderingImage(true);
+    try {
+      // Use AI-generated content if available, otherwise use raw data
+      const portfolioData = {
+        name: userName || 'Your Name',
+        headline: generatedPortfolio?.professional_headline || summary || 'Professional Maker',
+        bio: generatedPortfolio?.optimized_bio || summary || '',
+        skills: skills,
+        projects: projects.map((p, i) => ({
+          name: p.name,
+          description: generatedPortfolio?.key_project_summary?.[i]?.summary_point_1 
+            ? `${generatedPortfolio.key_project_summary[i].summary_point_1} ${generatedPortfolio.key_project_summary[i].summary_point_2 || ''} ${generatedPortfolio.key_project_summary[i].summary_point_3 || ''}`
+            : p.description,
+          images: p.images,
+          skills: p.skills,
+          toolsUsed: p.toolsUsed,
+        })),
+        profileImage: null, // Could add profile image upload later
+      };
+
+      const res = await fetch('/api/portfolio/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portfolioData }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        console.error('Render error', json);
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: json.message || 'Failed to generate portfolio image.' } }));
+        return;
+      }
+
+      setPortfolioImage(json.image);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Portfolio image generated!' } }));
+    } catch (e) {
+      console.error(e);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Failed to generate portfolio image.' } }));
+    } finally {
+      setRenderingImage(false);
+    }
+  };
+
+  // Download portfolio image
+  const downloadPortfolioImage = () => {
+    if (!portfolioImage) return;
+    const link = document.createElement('a');
+    link.href = portfolioImage;
+    link.download = `portfolio-${userName || 'maker'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -418,6 +480,11 @@ export default function SampleMakerProfilePage() {
       <section className="bg-white p-4 rounded shadow mb-4">
         <h2 className="font-semibold mb-2">{t('sample.basics','Basics')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium">{t('sample.name','Your Name')}</label>
+            <input value={userName} onChange={e => setUserName(e.target.value)} placeholder="John Doe" className="w-full border p-2 rounded" />
+          </div>
+
           <div>
             <label className="block text-sm font-medium">{t('sample.college','College')}</label>
             <input value={college} onChange={e => setCollege(e.target.value)} className="w-full border p-2 rounded" />
@@ -562,10 +629,35 @@ export default function SampleMakerProfilePage() {
         </div>
       </section>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <button onClick={() => saveAll(generatedPortfolio)} className="px-4 py-2 bg-[#1e40af] text-white rounded">{t('sample.save','Save')}</button>
         <button onClick={generateWithAI} disabled={generating} className="px-4 py-2 border rounded">{generating ? t('sample.generating','Generating...') : t('sample.customize_ai','Customize with AI')}</button>
+        <button 
+          onClick={generatePortfolioImage} 
+          disabled={renderingImage || projects.length === 0} 
+          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded disabled:opacity-50"
+        >
+          {renderingImage ? t('sample.rendering','Rendering...') : t('sample.generate_image','Generate Portfolio Image')}
+        </button>
       </div>
+
+      {/* Portfolio Image Preview */}
+      {portfolioImage && (
+        <section className="mt-4 bg-white p-4 rounded shadow">
+          <h3 className="font-semibold mb-3">{t('sample.portfolio_image','Your Portfolio Image')}</h3>
+          <div className="border rounded-lg overflow-hidden">
+            <img src={portfolioImage} alt="Generated Portfolio" className="w-full" />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button onClick={downloadPortfolioImage} className="px-4 py-2 bg-green-600 text-white rounded">
+              {t('sample.download_image','Download Image')}
+            </button>
+            <button onClick={() => setPortfolioImage(null)} className="px-4 py-2 border rounded">
+              {t('sample.dismiss','Dismiss')}
+            </button>
+          </div>
+        </section>
+      )}
 
       {generatedPortfolio && (
         <section className="mt-4 bg-white p-4 rounded shadow">

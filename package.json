@@ -9,11 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sparticuz/chromium-min": "^143.0.0",
     "@supabase/supabase-js": "^2.86.2",
     "country-state-city": "^3.0.0",
     "lucide-react": "^0.555.0",
     "next": "16.0.7",
     "next-intl": "^4.5.8",
+    "puppeteer": "^24.32.0",
+    "puppeteer-core": "^24.32.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "uuid": "^13.0.0"
