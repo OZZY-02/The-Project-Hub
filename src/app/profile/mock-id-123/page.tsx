@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 // Use built-in crypto.randomUUID when available to avoid extra dependency
 
@@ -14,12 +14,15 @@ type Project = {
   description: string;
   skills: string[];
   toolsUsed: string[];
-  images: string[]; // data URLs
+  images: string[]; // data URLs or public URLs
 };
 
 export default function SampleMakerProfilePage() {
   const { t } = useTranslation();
   const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [intakeId, setIntakeId] = useState<string | null>(null); // Track existing intake row ID for upsert
 
   const [resumeFileName, setResumeFileName] = useState<string | null>(null);
   const [resumeDataUrl, setResumeDataUrl] = useState<string | null>(null);
@@ -38,6 +41,67 @@ export default function SampleMakerProfilePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [generatedPortfolio, setGeneratedPortfolio] = useState<any | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  // Load existing intake data on mount
+  useEffect(() => {
+    const loadIntake = async () => {
+      setLoading(true);
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData?.user?.id || null;
+
+        if (userId) {
+          // Fetch the most recent intake for this user
+          const { data, error } = await supabase
+            .from('profile_intakes')
+            .select('*')
+            .eq('user_id', userId)
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
+          if (!error && data && data.length > 0) {
+            const intake = data[0];
+            setIntakeId(intake.id);
+
+            // Load from structured columns if available, else fall back to data JSONB
+            const d = intake.data || {};
+            setResumeFileName(intake.resume_file_name || d.resumeFileName || null);
+            setResumeDataUrl(intake.resume_url || d.resumeDataUrl || null);
+            setSkills(intake.skills || d.skills || []);
+            setCollege(intake.college || d.college || '');
+            setCertifications(intake.certifications || d.certifications || []);
+            setLanguages(intake.languages || d.languages || []);
+            setSummary(intake.summary || d.summary || '');
+            setProjects(intake.projects || d.projects || []);
+            setGeneratedPortfolio(intake.generated_portfolio || d.generated_portfolio || null);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fallback: try localStorage
+        const raw = localStorage.getItem('sample_profile_intake');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setResumeFileName(parsed.resumeFileName || null);
+          setResumeDataUrl(parsed.resumeDataUrl || null);
+          setSkills(parsed.skills || []);
+          setCollege(parsed.college || '');
+          setCertifications(parsed.certifications || []);
+          setLanguages(parsed.languages || []);
+          setSummary(parsed.summary || '');
+          setProjects(parsed.projects || []);
+          setGeneratedPortfolio(parsed.generated_portfolio || null);
+        }
+      } catch (err) {
+        console.warn('Failed to load intake data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadIntake();
+  }, []);
 
   const addSkill = () => {
     const s = skillInput.trim();
@@ -201,16 +265,45 @@ export default function SampleMakerProfilePage() {
       const finalPayload = { ...payload, projects: projectsWithUrls, resume_url } as any;
       if (generated) finalPayload.generated_portfolio = generated;
 
-      // Insert into DB table `profile_intakes`
-      const { error: insertError } = await supabase.from('profile_intakes').insert([{ user_id: userId, data: finalPayload, resume_url }]);
-      if (insertError) {
-        console.error('DB insert failed, falling back to localStorage', insertError);
+      // Upsert into DB table `profile_intakes` (insert if new, update if exists)
+      const upsertData: any = {
+        user_id: userId,
+        data: finalPayload,
+        resume_url,
+        resume_file_name: resumeFileName,
+        skills,
+        college,
+        certifications,
+        languages,
+        summary,
+        projects: projectsWithUrls,
+        updated_at: new Date().toISOString(),
+      };
+      if (generated) upsertData.generated_portfolio = generated;
+
+      // If we have an existing intake ID, include it for update
+      if (intakeId) {
+        upsertData.id = intakeId;
+      }
+
+      const { data: upsertResult, error: upsertError } = await supabase
+        .from('profile_intakes')
+        .upsert([upsertData], { onConflict: 'user_id' })
+        .select();
+
+      if (upsertError) {
+        console.error('DB upsert failed, falling back to localStorage', upsertError);
         try { localStorage.setItem('sample_profile_intake', JSON.stringify(finalPayload)); } catch (e) {}
-        const msg = insertError.message || insertError.details || JSON.stringify(insertError);
+        const msg = upsertError.message || upsertError.details || JSON.stringify(upsertError);
         // Show a concise toast but log full error to console for debugging
-        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: `Saved locally (DB insert failed). See console for details.` } }));
-        console.error('Supabase insert error detail:', insertError);
+        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: `Saved locally (DB save failed). See console for details.` } }));
+        console.error('Supabase upsert error detail:', upsertError);
         return;
+      }
+
+      // Track the intake ID for future saves
+      if (upsertResult && upsertResult.length > 0) {
+        setIntakeId(upsertResult[0].id);
       }
 
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile intake saved to Supabase.' } }));
@@ -276,6 +369,13 @@ export default function SampleMakerProfilePage() {
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">{t('sample.title','Sample Maker Intake')}</h1>
 
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e40af]"></div>
+          <span className="ml-3 text-gray-600">Loading your data...</span>
+        </div>
+      ) : (
+        <>
       <section className="bg-white p-4 rounded shadow mb-4">
         <label className="block text-sm font-medium mb-2">{t('sample.resume','Resume (PDF)')}</label>
         <input type="file" accept="application/pdf" onChange={handleResume} />
@@ -461,6 +561,8 @@ export default function SampleMakerProfilePage() {
             <button onClick={() => setGeneratedPortfolio(null)} className="px-3 py-1 border rounded">{t('sample.dismiss','Dismiss')}</button>
           </div>
         </section>
+      )}
+        </>
       )}
     </div>
   );
