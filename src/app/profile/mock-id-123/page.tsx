@@ -355,54 +355,99 @@ export default function SampleMakerProfilePage() {
     }
   };
 
-  const generateWithAI = async () => {
-    // Build userData payload matching DeepSeek response expectations
-    const userData = {
-      first_name: '',
-      last_name: '',
-      college,
-      major_field: '',
-      passion_sector: '',
-      skills: skills,
-      languages: languages,
-      certifications: certifications,
-      summary: summary,
-      projects: projects.map(p => ({
-        name: p.name,
-        project_title_en: p.name,
-        description: p.description,
-        description_en: p.description,
-        user_role: 'Creator',
-        tools_used: p.toolsUsed,
-        skills: p.skills,
-      })),
+  const templateThemes = [
+    {
+      theme_color: '#1e40af',
+      background_gradient_start: '#0f172a',
+      background_gradient_end: '#1d4ed8',
+      font_style: 'modern',
+    },
+    {
+      theme_color: '#047857',
+      background_gradient_start: '#022c22',
+      background_gradient_end: '#0f766e',
+      font_style: 'classic',
+    },
+    {
+      theme_color: '#9333ea',
+      background_gradient_start: '#3b0764',
+      background_gradient_end: '#a855f7',
+      font_style: 'playful',
+    },
+    {
+      theme_color: '#0ea5e9',
+      background_gradient_start: '#0f172a',
+      background_gradient_end: '#0284c7',
+      font_style: 'tech',
+    },
+  ];
+
+  const hashThemeSeed = (value: string) => {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash << 5) - hash + value.charCodeAt(i);
+      hash |= 0;
+    }
+    return hash;
+  };
+
+  const pickVisualStyle = () => {
+    const seed = `${userName}-${college}-${skills.join(',')}`;
+    const index = Math.abs(hashThemeSeed(seed || 'maker-template')) % templateThemes.length;
+    return templateThemes[index];
+  };
+
+  const buildTemplatePortfolio = () => {
+    const name = (userName || 'Emerging Maker').trim();
+    const coreSkill = skills[0] || 'Creative Technologist';
+    const headline = `${name} • ${coreSkill}${college ? ` @ ${college}` : ''}`;
+
+    const languagesLine = languages.length ? `Speaks ${languages.join(', ')}. ` : '';
+    const certificationsLine = certifications.length ? `Certified in ${certifications.join(', ')}. ` : '';
+    const summaryLine = summary?.trim() || `${name.split(' ')[0] || 'They'} build products that blend design rigor with rapid prototyping.`;
+    const bio = `${summaryLine} ${languagesLine}${certificationsLine}`.trim();
+
+    const safeProjects = projects.length > 0 ? projects : [{
+      id: 'template-project',
+      name: 'Signature Build',
+      description: 'Self-directed concept that showcases the maker mindset end-to-end.',
+      skills: skills.slice(0, 3),
+      toolsUsed: ['Figma', 'React', '3D Printing'],
+      user_role: 'Lead Maker',
+      images: [],
+    }];
+
+    const projectSummaries = safeProjects.map((project, index) => {
+      const baseDescription = project.description?.trim() || 'Led discovery, prototyping, and launch to solve a real community need.';
+      const skillLine = project.skills?.length ? project.skills.join(', ') : (skills.slice(0, 3).join(', ') || 'multi-disciplinary tools');
+      const toolLine = project.toolsUsed?.length ? project.toolsUsed.join(', ') : 'low-code platforms & rapid prototyping kits';
+      const projectRole = (project as any)?.user_role || 'Lead Maker';
+      return {
+        project_title: project.name || `Project ${index + 1}`,
+        summary_point_1: `Challenge: ${baseDescription}`,
+        summary_point_2: `Focus: ${skillLine}. Role: ${projectRole}.`,
+        summary_point_3: `Impact: Delivered tangible outcomes using ${toolLine}.`,
+      };
+    });
+
+    return {
+      professional_headline: headline,
+      optimized_bio: bio,
+      key_project_summary: projectSummaries,
+      visual_style: pickVisualStyle(),
     };
+  };
 
-    const userGoal = 'showcase their maker skills and projects professionally';
-
+  const generateWithAI = async () => {
     setGenerating(true);
     try {
-      const res = await fetch('/api/portfolio/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userData, userGoal }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        console.error('AI error', json);
-        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: json.message || 'AI generation failed.' } }));
-        return;
-      }
-      setGeneratedPortfolio(json.portfolio || null);
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generated preview ready. Creating visual portfolio...' } }));
-      
-      // Automatically generate the visual portfolio image using the new AI data
-      if (json.portfolio) {
-        await generatePortfolioImage(json.portfolio);
-      }
+      const templatePortfolio = buildTemplatePortfolio();
+      setGeneratedPortfolio(templatePortfolio);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Template generated. Creating visual portfolio...' } }));
+      await generatePortfolioImage(templatePortfolio);
     } catch (e) {
-      console.error(e);
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generation failed.' } }));
+      console.error('Template generation failed', e);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Template generation failed.' } }));
     } finally {
       setGenerating(false);
     }
