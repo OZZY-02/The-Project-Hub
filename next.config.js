@@ -1,12 +1,20 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
-// NOTE: The App Router (app/) handles routing differently than the pages router.
-// `i18n` config in next.config.js is not supported for App Router in newer
-// Next.js versions and can cause prerendering issues (e.g. expecting `/_document`).
-// If you need internationalization with App Router, implement locale routing
-// using route groups or the `generateStaticParams` approach per Next.js docs.
+const path = require('path');
+
+/**
+ * Next.js kept inferring the workspace root as the parent directory because a different
+ * lockfile lives up the tree. Explicitly tell Turbopack/Next where the project root lives
+ * so that .env.local and other app-level config resolve correctly.
+ */
+const projectRoot = __dirname;
+
 const nextConfig = {
-  // Keep other Next.js config here if needed.
+  reactCompiler: true,
+  outputFileTracingRoot: projectRoot,
+  turbopack: {
+    root: projectRoot,
+  },
 };
 
 module.exports = nextConfig;
