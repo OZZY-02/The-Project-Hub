@@ -394,7 +394,12 @@ export default function SampleMakerProfilePage() {
         return;
       }
       setGeneratedPortfolio(json.portfolio || null);
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generated preview ready.' } }));
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generated preview ready. Creating visual portfolio...' } }));
+      
+      // Automatically generate the visual portfolio image using the new AI data
+      if (json.portfolio) {
+        await generatePortfolioImage(json.portfolio);
+      }
     } catch (e) {
       console.error(e);
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'AI generation failed.' } }));
@@ -404,25 +409,28 @@ export default function SampleMakerProfilePage() {
   };
 
   // Generate a visual portfolio image
-  const generatePortfolioImage = async () => {
+  const generatePortfolioImage = async (aiData?: any) => {
     setRenderingImage(true);
     try {
-      // Use AI-generated content if available, otherwise use raw data
+      // Use AI-generated content if available (passed in or from state), otherwise use raw data
+      const sourceData = aiData || generatedPortfolio;
+      
       const portfolioData = {
         name: userName || 'Your Name',
-        headline: generatedPortfolio?.professional_headline || summary || 'Professional Maker',
-        bio: generatedPortfolio?.optimized_bio || summary || '',
+        headline: sourceData?.professional_headline || summary || 'Professional Maker',
+        bio: sourceData?.optimized_bio || summary || '',
         skills: skills,
         projects: projects.map((p, i) => ({
           name: p.name,
-          description: generatedPortfolio?.key_project_summary?.[i]?.summary_point_1 
-            ? `${generatedPortfolio.key_project_summary[i].summary_point_1} ${generatedPortfolio.key_project_summary[i].summary_point_2 || ''} ${generatedPortfolio.key_project_summary[i].summary_point_3 || ''}`
+          description: sourceData?.key_project_summary?.[i]?.summary_point_1 
+            ? `${sourceData.key_project_summary[i].summary_point_1} ${sourceData.key_project_summary[i].summary_point_2 || ''} ${sourceData.key_project_summary[i].summary_point_3 || ''}`
             : p.description,
           images: p.images,
           skills: p.skills,
           toolsUsed: p.toolsUsed,
         })),
         profileImage: null, // Could add profile image upload later
+        visualStyle: sourceData?.visual_style || {},
       };
 
       const res = await fetch('/api/portfolio/render', {
@@ -631,13 +639,8 @@ export default function SampleMakerProfilePage() {
 
       <div className="flex gap-3 flex-wrap">
         <button onClick={() => saveAll(generatedPortfolio)} className="px-4 py-2 bg-[#1e40af] text-white rounded">{t('sample.save','Save')}</button>
-        <button onClick={generateWithAI} disabled={generating} className="px-4 py-2 border rounded">{generating ? t('sample.generating','Generating...') : t('sample.customize_ai','Customize with AI')}</button>
-        <button 
-          onClick={generatePortfolioImage} 
-          disabled={renderingImage || projects.length === 0} 
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded disabled:opacity-50"
-        >
-          {renderingImage ? t('sample.rendering','Rendering...') : t('sample.generate_image','Generate Portfolio Image')}
+        <button onClick={generateWithAI} disabled={generating || renderingImage} className="px-4 py-2 border rounded">
+          {generating || renderingImage ? t('sample.generating','Generating Portfolio...') : t('sample.customize_ai','Customize with AI')}
         </button>
       </div>
 

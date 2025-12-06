@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       skills = [],
       projects = [],
       profileImage = null,
+      visualStyle = {},
     } = portfolioData;
 
     // Build HTML for the portfolio
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       projects,
       profileImage,
       template,
+      visualStyle,
     });
 
     // Launch puppeteer and render to image
@@ -94,10 +96,27 @@ interface PortfolioParams {
   }>;
   profileImage: string | null;
   template: string;
+  visualStyle?: {
+    theme_color?: string;
+    background_gradient_start?: string;
+    background_gradient_end?: string;
+    font_style?: string;
+  };
 }
 
 function generatePortfolioHTML(params: PortfolioParams): string {
-  const { name, headline, bio, skills, projects, profileImage, template } = params;
+  const { name, headline, bio, skills, projects, profileImage, template, visualStyle } = params;
+
+  // Default styles
+  const themeColor = visualStyle?.theme_color || '#667eea';
+  const bgStart = visualStyle?.background_gradient_start || '#1e3a5f';
+  const bgEnd = visualStyle?.background_gradient_end || '#0f1c2e';
+  const fontStyle = visualStyle?.font_style || 'modern';
+
+  let fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif";
+  if (fontStyle === 'classic') fontFamily = "'Georgia', serif";
+  if (fontStyle === 'tech') fontFamily = "'Courier New', monospace";
+  if (fontStyle === 'playful') fontFamily = "'Comic Sans MS', 'Chalkboard SE', sans-serif";
 
   const projectsHTML = projects.map((project, index) => {
     const projectImages = (project.images || []).slice(0, 3);
@@ -155,8 +174,8 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: linear-gradient(135deg, #1e3a5f 0%, #0f1c2e 100%);
+      font-family: ${fontFamily};
+      background: linear-gradient(135deg, ${bgStart} 0%, ${bgEnd} 100%);
       min-height: 100vh;
       color: #ffffff;
       padding: 60px;
@@ -177,6 +196,7 @@ function generatePortfolioHTML(params: PortfolioParams): string {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 24px;
       backdrop-filter: blur(10px);
+      border-left: 5px solid ${themeColor};
     }
     
     .profile-image {
@@ -191,7 +211,7 @@ function generatePortfolioHTML(params: PortfolioParams): string {
       width: 150px;
       height: 150px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, ${themeColor} 0%, ${bgEnd} 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -208,15 +228,16 @@ function generatePortfolioHTML(params: PortfolioParams): string {
       font-size: 42px;
       font-weight: 700;
       margin-bottom: 8px;
-      background: linear-gradient(90deg, #fff 0%, #a0c4ff 100%);
+      background: linear-gradient(90deg, #fff 0%, ${themeColor} 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
     
     .headline {
       font-size: 22px;
-      color: #64b5f6;
+      color: ${themeColor};
       margin-bottom: 16px;
+      filter: brightness(1.3);
     }
     
     .bio {
@@ -234,6 +255,9 @@ function generatePortfolioHTML(params: PortfolioParams): string {
       font-size: 28px;
       margin-bottom: 20px;
       color: #fff;
+      border-bottom: 2px solid ${themeColor};
+      display: inline-block;
+      padding-bottom: 5px;
     }
     
     .skills-list {
@@ -243,11 +267,12 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     }
     
     .skill-badge {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, ${themeColor} 0%, ${bgEnd} 100%);
       padding: 10px 20px;
       border-radius: 30px;
       font-size: 14px;
       font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.1);
     }
     
     /* Projects Section */
@@ -255,6 +280,9 @@ function generatePortfolioHTML(params: PortfolioParams): string {
       font-size: 28px;
       margin-bottom: 30px;
       color: #fff;
+      border-bottom: 2px solid ${themeColor};
+      display: inline-block;
+      padding-bottom: 5px;
     }
     
     .project-card {
@@ -266,13 +294,15 @@ function generatePortfolioHTML(params: PortfolioParams): string {
       gap: 30px;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.3s ease;
     }
     
     .project-number {
       font-size: 48px;
       font-weight: 800;
-      color: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.05);
       line-height: 1;
+      -webkit-text-stroke: 1px ${themeColor};
     }
     
     .project-content {
@@ -300,8 +330,9 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     }
     
     .tools-label {
-      color: #64b5f6;
+      color: ${themeColor};
       font-weight: 500;
+      filter: brightness(1.3);
     }
     
     .project-skills {
@@ -311,11 +342,12 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     }
     
     .skill-tag {
-      background: rgba(100, 181, 246, 0.2);
-      color: #64b5f6;
+      background: rgba(255, 255, 255, 0.1);
+      color: ${themeColor};
       padding: 4px 12px;
       border-radius: 15px;
       font-size: 12px;
+      filter: brightness(1.3);
     }
     
     .project-images {

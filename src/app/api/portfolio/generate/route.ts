@@ -60,10 +60,19 @@ const responseSchema = {
                         description: "A bullet point quantifying the result or impact (R- Result/Impact)." 
                     }
                 }
+            },
+        },
+        visual_style: {
+            type: "OBJECT",
+            properties: {
+                theme_color: { type: "STRING", description: "A primary hex color code (e.g. #1e40af) that matches the user's professional vibe." },
+                background_gradient_start: { type: "STRING", description: "Start color for background gradient." },
+                background_gradient_end: { type: "STRING", description: "End color for background gradient." },
+                font_style: { type: "STRING", description: "Suggested font style: 'modern', 'classic', 'tech', or 'playful'." }
             }
         }
     },
-    required: ["professional_headline", "optimized_bio", "key_project_summary"]
+    required: ["professional_headline", "optimized_bio", "key_project_summary", "visual_style"]
 };
 
 
