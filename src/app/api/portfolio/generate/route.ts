@@ -1,4 +1,13 @@
 import { NextResponse } from 'next/server';
+import path from 'path';
+import dotenv from 'dotenv';
+
+// Force load .env.local to ensure GEMINI_API_KEY is available
+try {
+    dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+} catch (e) {
+    console.error("Failed to load .env.local", e);
+}
 
 // This route acts as the secure intermediary between your frontend and the Gemini API.
 // NOTE: Add GEMINI_API_KEY to your .env.local and Vercel environment.
