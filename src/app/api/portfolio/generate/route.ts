@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Force load .env.local to ensure GEMINI_API_KEY is available
+// Force load .env.local to ensure GEMINI_API_KEY is available (Fix for local dev)
 try {
     dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 } catch (e) {
