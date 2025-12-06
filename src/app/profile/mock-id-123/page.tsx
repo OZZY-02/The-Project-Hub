@@ -266,30 +266,63 @@ export default function SampleMakerProfilePage() {
       if (generated) finalPayload.generated_portfolio = generated;
 
       // Upsert into DB table `profile_intakes` (insert if new, update if exists)
+      // Store all data in the `data` JSONB column for maximum compatibility
       const upsertData: any = {
         user_id: userId,
-        data: finalPayload,
-        resume_url,
-        resume_file_name: resumeFileName,
-        skills,
-        college,
-        certifications,
-        languages,
-        summary,
-        projects: projectsWithUrls,
-        updated_at: new Date().toISOString(),
+        data: {
+          resumeFileName,
+          resumeDataUrl: resume_url || resumeDataUrl,
+          skills,
+          college,
+          certifications,
+          languages,
+          summary,
+          projects: projectsWithUrls,
+          savedAt: new Date().toISOString(),
+          ...(generated ? { generated_portfolio: generated } : {}),
+        },
       };
-      if (generated) upsertData.generated_portfolio = generated;
-
-      // If we have an existing intake ID, include it for update
-      if (intakeId) {
-        upsertData.id = intakeId;
+      // Only add resume_url if we have one (column may or may not exist)
+      if (resume_url) {
+        upsertData.resume_url = resume_url;
       }
 
-      const { data: upsertResult, error: upsertError } = await supabase
-        .from('profile_intakes')
-        .upsert([upsertData], { onConflict: 'user_id' })
-        .select();
+      // Check if we have an existing record for this user
+      let existingId = intakeId;
+      if (!existingId) {
+        const { data: existing } = await supabase
+          .from('profile_intakes')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
+        if (existing && existing.length > 0) {
+          existingId = existing[0].id;
+          setIntakeId(existingId);
+        }
+      }
+
+      let upsertResult: any = null;
+      let upsertError: any = null;
+
+      if (existingId) {
+        // Update existing record
+        const { data, error } = await supabase
+          .from('profile_intakes')
+          .update(upsertData)
+          .eq('id', existingId)
+          .select();
+        upsertResult = data;
+        upsertError = error;
+      } else {
+        // Insert new record
+        upsertData.user_id = userId;
+        const { data, error } = await supabase
+          .from('profile_intakes')
+          .insert([upsertData])
+          .select();
+        upsertResult = data;
+        upsertError = error;
+      }
 
       if (upsertError) {
         console.error('DB upsert failed, falling back to localStorage', upsertError);
