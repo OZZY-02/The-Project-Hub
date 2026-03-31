@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
+import { escapeHtml } from '@/lib/request-security';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
+
   try {
     const { portfolioData, template = 'modern' } = await request.json();
 
@@ -31,8 +36,7 @@ export async function POST(request: Request) {
       visualStyle,
     });
 
-    // Launch puppeteer and render to image
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
@@ -63,6 +67,7 @@ export async function POST(request: Request) {
     });
 
     await browser.close();
+    browser = null;
 
     // Return as base64 data URL
     const base64 = Buffer.from(screenshot).toString('base64');
@@ -73,12 +78,16 @@ export async function POST(request: Request) {
       image: dataUrl,
       message: 'Portfolio image generated successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Portfolio render error:', error);
     return NextResponse.json(
-      { success: false, message: error.message || 'Failed to render portfolio' },
+      { success: false, message: error instanceof Error ? error.message : 'Failed to render portfolio' },
       { status: 500 }
     );
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
@@ -105,7 +114,7 @@ interface PortfolioParams {
 }
 
 function generatePortfolioHTML(params: PortfolioParams): string {
-  const { name, headline, bio, skills, projects, profileImage, template, visualStyle } = params;
+  const { name, headline, bio, skills, projects, profileImage, visualStyle } = params;
 
   // Default styles
   const themeColor = visualStyle?.theme_color || '#667eea';
@@ -122,24 +131,24 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     const projectImages = (project.images || []).slice(0, 3);
     const imagesHTML = projectImages.length > 0 
       ? `<div class="project-images">
-          ${projectImages.map(img => `<img src="${img}" alt="${project.name}" class="project-img" />`).join('')}
+          ${projectImages.map(img => `<img src="${img}" alt="${escapeHtml(project.name || 'Project image')}" class="project-img" />`).join('')}
          </div>`
       : '';
     
     const toolsHTML = (project.toolsUsed || []).length > 0
-      ? `<div class="tools"><span class="tools-label">Tools:</span> ${(project.toolsUsed || []).join(', ')}</div>`
+      ? `<div class="tools"><span class="tools-label">Tools:</span> ${(project.toolsUsed || []).map(tool => escapeHtml(tool)).join(', ')}</div>`
       : '';
 
     const skillsHTML = (project.skills || []).length > 0
-      ? `<div class="project-skills">${(project.skills || []).map(s => `<span class="skill-tag">${s}</span>`).join('')}</div>`
+      ? `<div class="project-skills">${(project.skills || []).map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join('')}</div>`
       : '';
 
     return `
       <div class="project-card">
         <div class="project-number">${String(index + 1).padStart(2, '0')}</div>
         <div class="project-content">
-          <h3 class="project-title">${project.name || 'Untitled Project'}</h3>
-          <p class="project-desc">${project.description || ''}</p>
+          <h3 class="project-title">${escapeHtml(project.name || 'Untitled Project')}</h3>
+          <p class="project-desc">${escapeHtml(project.description || '')}</p>
           ${toolsHTML}
           ${skillsHTML}
         </div>
@@ -152,14 +161,14 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     ? `<div class="skills-section">
         <h2>Skills</h2>
         <div class="skills-list">
-          ${skills.map(s => `<span class="skill-badge">${s}</span>`).join('')}
+          ${skills.map(s => `<span class="skill-badge">${escapeHtml(s)}</span>`).join('')}
         </div>
        </div>`
     : '';
 
   const profileImageHTML = profileImage 
-    ? `<img src="${profileImage}" alt="${name}" class="profile-image" />`
-    : `<div class="profile-placeholder">${name.charAt(0).toUpperCase()}</div>`;
+    ? `<img src="${profileImage}" alt="${escapeHtml(name)}" class="profile-image" />`
+    : `<div class="profile-placeholder">${escapeHtml(name.charAt(0).toUpperCase())}</div>`;
 
   return `
 <!DOCTYPE html>
@@ -381,9 +390,9 @@ function generatePortfolioHTML(params: PortfolioParams): string {
     <div class="header">
       ${profileImageHTML}
       <div class="header-info">
-        <h1 class="name">${name}</h1>
-        <p class="headline">${headline}</p>
-        <p class="bio">${bio}</p>
+      <h1 class="name">${escapeHtml(name)}</h1>
+      <p class="headline">${escapeHtml(headline)}</p>
+      <p class="bio">${escapeHtml(bio)}</p>
       </div>
     </div>
     

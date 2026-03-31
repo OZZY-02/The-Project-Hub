@@ -4,7 +4,8 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 
 type Locale = "en" | "ar";
 
-type Translations = Record<string, any>;
+type TranslationValue = string | { [key: string]: TranslationValue };
+type Translations = Record<string, TranslationValue>;
 
 type I18nContextShape = {
   locale: Locale;
@@ -15,17 +16,24 @@ type I18nContextShape = {
 const I18nContext = createContext<I18nContextShape | null>(null);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    try {
-      const saved = typeof window !== "undefined" ? window.localStorage.getItem("locale") : null;
-      if (saved === "ar") return "ar";
-    } catch (e) {
-      /* ignore */
-    }
-    return "en";
-  });
+  const [locale, setLocaleState] = useState<Locale>("en");
 
   const [translations, setTranslations] = useState<Translations | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("locale");
+      if (saved === "ar" || saved === "en") {
+        const frame = window.requestAnimationFrame(() => {
+          setLocaleState(saved);
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("locale", locale);
@@ -33,7 +41,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     try {
       document.documentElement.lang = locale === "ar" ? "ar" : "en";
       document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
-    } catch (e) {
+    } catch {
       // ignore in non-browser contexts
     }
 
@@ -58,9 +66,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return (key: string, fallback?: string) => {
       if (!translations) return fallback || key;
       const parts = key.split(".");
-      let cur: any = translations;
+      let cur: TranslationValue | undefined = translations;
       for (const p of parts) {
-        if (cur && Object.prototype.hasOwnProperty.call(cur, p)) {
+        if (cur && typeof cur === "object" && Object.prototype.hasOwnProperty.call(cur, p)) {
           cur = cur[p];
         } else {
           return fallback || key;

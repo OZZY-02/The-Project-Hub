@@ -1,8 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
+import { createMissingSupabaseEnvError, hasSupabaseEnv } from './env';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const isConfigured = hasSupabaseEnv();
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+if (!isConfigured && typeof window !== 'undefined') {
+  console.warn(createMissingSupabaseEnvError().message);
+}
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'missing-supabase-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+);
 
 export default supabase;

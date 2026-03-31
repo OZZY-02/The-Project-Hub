@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import supabase from '@/lib/supabaseClient'; 
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Briefcase, Zap, Globe, Cpu, Loader2, ArrowRight } from 'lucide-react'; 
+import { ArrowLeft, MapPin, Briefcase, Cpu, Loader2, ArrowRight } from 'lucide-react'; 
+import { useTranslation } from '@/lib/i18n';
 
 // --- 1. TYPE DEFINITIONS ---
 interface Profile {
@@ -87,7 +88,7 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                 
                 {/* Column 1: Major & Location */}
-                <div className="md:col-span-1 space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-inner">
+                <div className="md:col-span-1 space-y-3 p-4 bg-[#111f1c] rounded-xl border border-[#2e403a] shadow-inner">
                     <div className='flex items-center space-x-2'>
                         <img 
                             src="https://placehold.co/60x60/4f46e5/ffffff?text=AM" 
@@ -95,8 +96,8 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
                             className="rounded-full w-14 h-14 object-cover border-2 border-white shadow-md"
                         />
                         <div className='flex flex-col'>
-                            <h1 className="text-xl font-extrabold text-[#1e40af]">{profile.first_name} {profile.last_name}</h1>
-                            <p className="text-sm text-gray-700 font-medium flex items-center">
+                            <h1 className="text-xl font-extrabold text-[#f7f1e7]">{profile.first_name} {profile.last_name}</h1>
+                            <p className="text-sm text-[#cfc8be] font-medium flex items-center">
                                 <MapPin size={14} className="mr-1" />
                                 {profile.location_city}
                             </p>
@@ -104,28 +105,28 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
                     </div>
 
                     <div className={`text-md ${align}`}>
-                        <p className="font-semibold text-gray-800 flex items-center">
-                            <Briefcase size={16} className={`ms-1 rtl:me-1 text-[#4f46e5]`} />
+                        <p className="font-semibold text-[#d9b88c] flex items-center">
+                            <Briefcase size={16} className={`ms-1 rtl:me-1 text-[#d9b88c]`} />
                             {t('major', language)}
                         </p>
-                        <span className="text-gray-600 font-medium ms-5 rtl:me-5">{profile.major_field}</span>
+                        <span className="text-[#cfc8be] font-medium ms-5 rtl:me-5">{profile.major_field}</span>
                     </div>
                 </div>
 
                 {/* Column 2 & 3: Short Summary & Skills */}
                 <div className="md:col-span-2 space-y-4">
                     {/* Short Summary */}
-                    <div className={`p-4 rounded-xl shadow-md border-b-2 border-gray-300 ${align}`}>
-                        <h2 className={`text-xl font-bold text-gray-800 mb-2`}>{t('about', language)}</h2>
-                        <p className="text-gray-600 leading-relaxed text-base">
+                    <div className={`p-4 rounded-xl shadow-md border border-[#2e403a] bg-[#0f1a17] ${align}`}>
+                        <h2 className={`text-xl font-bold text-[#f7f1e7] mb-2`}>{t('about', language)}</h2>
+                        <p className="text-[#cfc8be] leading-relaxed text-base">
                             {profile.bio}
                         </p>
-                        {profile.is_mentor && <span className="mt-3 inline-block text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium shadow-sm">Verified Mentor</span>}
+                        {profile.is_mentor && <span className="mt-3 inline-block text-xs bg-[#1a2824] text-[#f0d6a8] px-3 py-1 rounded-full font-medium shadow-sm">Verified Mentor</span>}
                     </div>
 
                     {/* Skills Box */}
-                    <div className={`p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-inner ${align}`}>
-                        <h3 className={`text-lg font-bold text-[#1e40af] mb-2 flex items-center ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
+                    <div className={`p-4 bg-[#111f1c] rounded-xl border border-[#2e403a] shadow-inner ${align}`}>
+                        <h3 className={`text-lg font-bold text-[#d9b88c] mb-2 flex items-center ${language === 'ar' ? 'flex-row-reverse' : ''}`}>
                             <Cpu size={18} className={`ms-2 rtl:me-2`} />
                             {t('skills', language)}
                         </h3>
@@ -133,7 +134,7 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
                             {skills.map((skill, index) => (
                                 <span 
                                     key={index} 
-                                    className="bg-[#e0e7ff] text-[#1e40af] text-sm font-medium px-3 py-1 rounded-full shadow-sm"
+                                    className="bg-[#172421] text-[#e8dcc5] text-sm font-medium px-3 py-1 rounded-full shadow-sm"
                                 >
                                     {skill.skill_name} ({skill.proficiency_level}/5)
                                 </span>
@@ -145,7 +146,7 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
             
             {/* PROJECTS SECTION (Alternating Layout) */}
             <section>
-                <h2 className="text-3xl font-bold text-gray-800 mb-10 text-center border-b pb-4">
+                <h2 className="text-3xl font-bold text-[#f7f1e7] mb-10 text-center border-b border-[#2e403a] pb-4">
                     {t('projects', language)}
                 </h2>
                 
@@ -158,7 +159,7 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
                     return (
                         <div 
                             key={index} 
-                            className={`flex flex-col ${directionClass} gap-8 mb-16 p-6 bg-white border border-gray-200 rounded-xl shadow-lg transition duration-300 hover:shadow-xl`}
+                            className={`flex flex-col ${directionClass} gap-8 mb-16 p-6 bg-[#0f1a17] border border-[#2e403a] rounded-xl shadow-lg transition duration-300 hover:shadow-xl`}
                         >
                             {/* Project Image */}
                             <div className="md:w-1/2 w-full flex-shrink-0">
@@ -172,18 +173,18 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
 
                             {/* Project Description */}
                             <div className={`md:w-1/2 w-full ${align}`}>
-                                <h3 className="text-3xl font-extrabold text-gray-900 mb-3">
+                                <h3 className="text-3xl font-extrabold text-[#f7f1e7] mb-3">
                                     {getBilingualText(project.project_title_en, project.project_title_ar, language, "Project Title")}
                                 </h3>
-                                <p className={`text-sm text-[#4f46e5] font-semibold mb-3`}>
+                                <p className={`text-sm text-[#d9b88c] font-semibold mb-3`}>
                                     {t('role', language)} {project.user_role}
-                                    {project.is_team_project && <span className={`ms-2 rtl:me-2 text-gray-500 font-normal`}>({t('team_project', language)})</span>}
+                                    {project.is_team_project && <span className={`ms-2 rtl:me-2 text-[#9ca3af] font-normal`}>({t('team_project', language)})</span>}
                                 </p>
-                                <p className="text-gray-700 leading-relaxed">
+                                <p className="text-[#cfc8be] leading-relaxed">
                                     {getBilingualText(project.description_en, project.description_ar, language, "Project Description")}
                                 </p>
                                 
-                                <button className="mt-4 text-[#1e40af] hover:text-[#3730a3] font-medium text-sm flex items-center">
+                                <button className="mt-4 text-[#d9b88c] hover:text-[#f0d6a8] font-medium text-sm flex items-center">
                                     {t('view_case_study', language)}
                                     <ArrowRight size={16} className={`ms-1 rtl:me-1`} />
                                 </button>
@@ -193,7 +194,7 @@ const PortfolioLayout1: React.FC<LayoutProps> = ({ profile, skills, projects, la
                 })}
                 
                 {projects.length === 0 && (
-                    <p className={`text-gray-500 italic p-6 border rounded-lg ${align}`}>{language === 'en' ? 'No projects submitted yet.' : 'لم يتم تقديم أي مشاريع بعد.'}</p>
+                    <p className={`text-[#9ca3af] italic p-6 border border-[#2e403a] rounded-lg ${align}`}>{language === 'en' ? 'No projects submitted yet.' : 'لم يتم تقديم أي مشاريع بعد.'}</p>
                 )}
             </section>
         </>
@@ -208,15 +209,15 @@ const PortfolioLayout2: React.FC<LayoutProps> = ({ profile, skills, projects, la
         <div className="space-y-10">
             {/* TOP BAR: College, Major, Skills */}
             <header className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="col-span-1 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800">{t('major', language)}</h3>
-                    <p className="text-gray-600">{profile.major_field}</p>
+                <div className="col-span-1 p-4 bg-[#111f1c] rounded-xl border border-[#2e403a]">
+                    <h3 className="text-lg font-bold text-[#d9b88c]">{t('major', language)}</h3>
+                    <p className="text-[#cfc8be]">{profile.major_field}</p>
                 </div>
-                <div className="col-span-2 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <h3 className="text-lg font-bold text-gray-800">{t('skills', language)}</h3>
+                <div className="col-span-2 p-4 bg-[#111f1c] rounded-xl border border-[#2e403a]">
+                    <h3 className="text-lg font-bold text-[#d9b88c]">{t('skills', language)}</h3>
                     <div className="flex flex-wrap gap-2 mt-2">
                         {skills.map((skill, index) => (
-                            <span key={index} className="bg-purple-100 text-purple-700 text-sm font-medium px-3 py-1 rounded-full shadow-sm">
+                            <span key={index} className="bg-[#172421] text-[#e8dcc5] text-sm font-medium px-3 py-1 rounded-full shadow-sm">
                                 {skill.skill_name}
                             </span>
                         ))}
@@ -226,12 +227,12 @@ const PortfolioLayout2: React.FC<LayoutProps> = ({ profile, skills, projects, la
 
             {/* PROJECTS VISUALS (Horizontal Bar) */}
             <section>
-                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center border-b pb-3">
+                <h2 className="text-3xl font-bold text-[#f7f1e7] mb-6 text-center border-b border-[#2e403a] pb-3">
                     {t('projects', language)}
                 </h2>
                 <div className="flex overflow-x-auto space-x-4 pb-4">
                     {projects.map((project, index) => (
-                        <div key={index} className="flex-shrink-0 w-64 h-48 rounded-lg shadow-lg border border-gray-300">
+                        <div key={index} className="flex-shrink-0 w-64 h-48 rounded-lg shadow-lg border border-[#2e403a] bg-[#0f1a17]">
                             <img 
                                 src={project.image_url} 
                                 alt={`Project ${index + 1} Visual`} 
@@ -246,11 +247,11 @@ const PortfolioLayout2: React.FC<LayoutProps> = ({ profile, skills, projects, la
             {/* PROJECT DESCRIPTIONS (Below Visuals) */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {projects.slice(0, 3).map((project, index) => (
-                    <div key={index} className="p-4 bg-white rounded-xl shadow-md border-t-2 border-[#4f46e5]">
-                        <h3 className={`text-xl font-bold text-gray-900 mb-2 ${align}`}>
+                    <div key={index} className="p-4 bg-[#0f1a17] rounded-xl shadow-md border border-[#2e403a]">
+                        <h3 className={`text-xl font-bold text-[#f7f1e7] mb-2 ${align}`}>
                             {getBilingualText(project.project_title_en, project.project_title_ar, language, `Project ${index + 1}`)}
                         </h3>
-                        <p className={`text-sm text-gray-600 ${align}`}>
+                        <p className={`text-sm text-[#cfc8be] ${align}`}>
                             {getBilingualText(project.description_en, project.description_ar, language, "Description")}
                         </p>
                     </div>
@@ -258,9 +259,9 @@ const PortfolioLayout2: React.FC<LayoutProps> = ({ profile, skills, projects, la
             </section>
 
             {/* SHORT SUMMARY (Wide at the Bottom) */}
-            <section className="p-6 bg-blue-50 rounded-xl border border-blue-200 shadow-inner">
-                <h3 className={`text-xl font-bold text-blue-900 mb-2 ${align}`}>{t('about', language)}</h3>
-                <p className={`text-gray-700 leading-relaxed ${align}`}>{profile.bio}</p>
+            <section className="p-6 bg-[#0f1a17] rounded-xl border border-[#2e403a] shadow-inner">
+                <h3 className={`text-xl font-bold text-[#f7f1e7] mb-2 ${align}`}>{t('about', language)}</h3>
+                <p className={`text-[#cfc8be] leading-relaxed ${align}`}>{profile.bio}</p>
             </section>
         </div>
     );
@@ -270,12 +271,14 @@ const PortfolioLayout2: React.FC<LayoutProps> = ({ profile, skills, projects, la
 export default function MakerProfilePage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const profileId = params.id;
+    const { locale } = useTranslation();
+    const language = locale === 'ar' ? 'ar' : 'en';
 
     const [profile, setProfile] = useState<Profile | null>(null);
     const [skills, setSkills] = useState<Skill[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
-    const [language, setLanguage] = useState<'en' | 'ar'>('en'); 
+    
     
     // Fetch profile data from Supabase or use mock data
     const fetchProfileData = async () => {
@@ -375,20 +378,20 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
     // --- Loading and Error States ---
     if (loading) {
         return (
-            <div className="flex justify-center items-center min-h-screen bg-gray-50">
-                <Loader2 className="animate-spin h-8 w-8 text-[#1e40af]" />
-                <p className="ml-3 text-gray-600">Loading maker profile...</p>
+            <div className="flex justify-center items-center min-h-screen bg-[#0b1413] text-[#f4efe6]">
+                <Loader2 className="animate-spin h-8 w-8 text-[#ce1126]" />
+                <p className="ml-3 text-sm text-[#cfc8be]">Loading maker profile...</p>
             </div>
         );
     }
 
     if (!profile) {
         return (
-            <div className="text-center p-10 bg-gray-50 min-h-screen">
-                <h1 className="text-2xl font-bold text-red-600">Profile Not Found</h1>
+            <div className="text-center p-10 bg-[#0b1413] min-h-screen text-[#f4efe6]">
+                <h1 className="text-2xl font-bold text-[#f0a37f]">Profile Not Found</h1>
                 <button 
                     onClick={() => router.push('/')} 
-                    className="mt-4 text-sm text-[#1e40af] hover:underline flex items-center justify-center mx-auto"
+                    className="mt-4 text-sm text-[#d9b88c] hover:underline flex items-center justify-center mx-auto"
                 >
                     <ArrowLeft size={16} className="mr-1" /> Go to Hub Home
                 </button>
@@ -410,24 +413,14 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
 
 
     return (
-        <div dir={dir} className="min-h-screen bg-gray-100 font-sans p-4 sm:p-10">
-            {/* Language Switcher */}
-            <div className={`flex w-full max-w-5xl mx-auto mb-6 ${language === 'ar' ? 'justify-start' : 'justify-end'}`}>
-                <button 
-                    onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
-                    className="flex items-center space-x-2 bg-white text-[#1e40af] border border-gray-300 py-2 px-4 rounded-full text-sm font-medium hover:bg-gray-200 transition shadow-sm"
-                >
-                    <Globe size={18} className={`${language === 'ar' ? 'order-2 ml-2' : 'order-1 mr-2'}`} />
-                    <span className='order-1'>{language === 'en' ? 'العربية' : 'English'}</span>
-                </button>
-            </div>
-
-            {/* Main Portfolio Container */}
-            <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl p-6 sm:p-10 border-t-8 border-[#1e40af]">
+        <div
+            dir={dir}
+            className="min-h-screen bg-[radial-gradient(circle_at_15%_10%,#223a34_0%,transparent_45%),linear-gradient(180deg,#0b1413_0%,#0f1c1a_50%,#141a17_100%)] p-4 sm:p-10 text-[#f4efe6]"
+        >
+            <div className="max-w-5xl mx-auto rounded-[28px] border border-[#2e403a] bg-[#111f1c]/90 p-6 sm:p-10 shadow-[0_28px_80px_-40px_rgba(0,0,0,0.8)]">
                 {renderPortfolioLayout()}
             </div>
-            
-            <footer className="mt-10 text-center text-gray-500 text-sm">
+            <footer className="mt-10 text-center text-xs text-[#9ca3af]">
                 &copy; {new Date().getFullYear()} The Project Hub. All Rights Reserved.
             </footer>
         </div>

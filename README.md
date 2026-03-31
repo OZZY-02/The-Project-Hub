@@ -1,47 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Project Hub
 
-## Getting Started
+The Project Hub is a single-package Next.js app for profile creation, portfolio generation, matching, and bilingual community discovery. The app uses Supabase for auth and profile data, plus a few server routes for portfolio rendering, AI-assisted editing, and resume thumbnailing.
 
-First, run the development server:
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run start
+npm run lint
+npm run test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`npm run lint` currently reports pre-existing issues in untouched parts of the app, so use it as a broad code-health signal rather than a strict gate. `npm run test` covers the new environment and request-security helpers.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Environment Variables
-
-Create a `.env.local` file (Next.js automatically loads it) with the following values:
+1. Install dependencies with `npm install`.
+2. Create `.env.local`.
+3. Add the required client env vars:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
 ```
 
-Restart the dev server whenever you change environment variables so the API routes pick up the new values.
+4. Add the optional server env vars when you need the related features:
 
-## Learn More
+```bash
+OPENAI_API_KEY="your-openai-key"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+```
 
-To learn more about Next.js, take a look at the following resources:
+5. Restart the dev server whenever environment variables change.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The app no longer falls back to embedded Supabase credentials. Missing Supabase env vars now fail with an explicit setup error so local and production behavior stay aligned.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Supabase Setup
 
-## Deploy on Vercel
+The app expects an existing `public.profiles` table tied to Supabase auth users. Then apply the SQL scripts in `scripts/` to bring the schema up to date:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. `scripts/add_username_column.sql`
+2. `scripts/add_location_columns.sql`
+3. `scripts/add_avatar_column.sql`
+4. `scripts/add_profile_columns.sql`
+5. `scripts/create_profile_intakes.sql`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Important columns used by the UI include:
+
+- `profiles.username`
+- `profiles.first_name`
+- `profiles.last_name`
+- `profiles.location_country`
+- `profiles.location_city`
+- `profiles.major_field`
+- `profiles.passion_sector`
+- `profiles.is_mentor`
+- `profiles.bio`
+- `profiles.avatar_data_url`
+
+`profile_intakes` stores intake JSON plus optional resume metadata. The SQL file includes example RLS guidance, but you still need to enable and tailor your policies in Supabase for your project.
+
+If you want a public `avatars` storage bucket, run:
+
+```bash
+SUPABASE_URL="https://..." SUPABASE_SERVICE_ROLE_KEY="..." node scripts/create_avatar_bucket.js
+```
+
+## Route Intent
+
+Current route behavior is:
+
+- Public routes: `/`, `/auth/*`, `/profile/[id]`, `/profile/[id]/portfolio`
+- Protected in the client: `/matching/*`, `/profile/settings`
+
+Auth is still enforced in the browser via the Supabase client, not through a full server-side auth integration. That means protected-page redirects are clearer now, but a full SSR auth migration would still be the right next step if you need stronger guarantees.
+
+## API Notes
+
+- `/api/portfolio/render` uses Puppeteer and now escapes injected HTML content before rendering.
+- `/api/portfolio/ai-edit` requires Supabase public env vars and an auth bearer token. AI editing also requires `OPENAI_API_KEY`.
+- `/api/resume/thumbnail` only allows remote `http` and `https` URLs and blocks localhost/private-network targets to reduce SSRF risk.
+- `/api/locations` reads from `src/data/countries.json`.
+
+The PDF/image routes depend on `puppeteer`, `canvas`, and `pdfjs-dist`, which are the most environment-sensitive parts of the stack.

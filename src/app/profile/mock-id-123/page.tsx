@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 // Use built-in crypto.randomUUID when available to avoid extra dependency
 
 
@@ -18,8 +18,11 @@ type Project = {
 };
 
 export default function SampleMakerProfilePage() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
+  const dir = locale === 'ar' ? 'rtl' : 'ltr';
+  const align = locale === 'ar' ? 'text-right' : 'text-left';
 
   const [loading, setLoading] = useState(true);
   const [intakeId, setIntakeId] = useState<string | null>(null); // Track existing intake row ID for upsert
@@ -31,6 +34,8 @@ export default function SampleMakerProfilePage() {
   const [skillInput, setSkillInput] = useState("");
 
   const [college, setCollege] = useState("");
+  const [major, setMajor] = useState("");
+  const [degreeLevel, setDegreeLevel] = useState('');
   const [certifications, setCertifications] = useState<string[]>([]);
   const [certInput, setCertInput] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
@@ -40,8 +45,9 @@ export default function SampleMakerProfilePage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [generatedPortfolio, setGeneratedPortfolio] = useState<any | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [portfolioImage, setPortfolioImage] = useState<string | null>(null);
+  // visual image generation removed — generated JSON is the source of truth
   const [renderingImage, setRenderingImage] = useState(false);
   const [userName, setUserName] = useState("");
 
@@ -49,18 +55,23 @@ export default function SampleMakerProfilePage() {
   useEffect(() => {
     const loadIntake = async () => {
       setLoading(true);
+      console.time('loadIntake');
       try {
+        console.time('supabase.getUser');
         const { data: userData } = await supabase.auth.getUser();
+        console.timeEnd('supabase.getUser');
         const userId = userData?.user?.id || null;
 
         if (userId) {
           // Fetch the most recent intake for this user
+          console.time('supabase.profile_intakes_query');
           const { data, error } = await supabase
             .from('profile_intakes')
             .select('*')
             .eq('user_id', userId)
             .order('updated_at', { ascending: false })
             .limit(1);
+          console.timeEnd('supabase.profile_intakes_query');
 
           if (!error && data && data.length > 0) {
             const intake = data[0];
@@ -72,6 +83,8 @@ export default function SampleMakerProfilePage() {
             setResumeDataUrl(intake.resume_url || d.resumeDataUrl || null);
             setSkills(intake.skills || d.skills || []);
             setCollege(intake.college || d.college || '');
+            setMajor(intake.major || d.major || '');
+            setDegreeLevel(intake.degree_level || d.degree_level || '');
             setCertifications(intake.certifications || d.certifications || []);
             setLanguages(intake.languages || d.languages || []);
             setSummary(intake.summary || d.summary || '');
@@ -79,6 +92,7 @@ export default function SampleMakerProfilePage() {
             setGeneratedPortfolio(intake.generated_portfolio || d.generated_portfolio || null);
             setUserName(d.userName || '');
             setLoading(false);
+            console.timeEnd('loadIntake');
             return;
           }
         }
@@ -92,6 +106,7 @@ export default function SampleMakerProfilePage() {
           setSkills(parsed.skills || []);
           setCollege(parsed.college || '');
           setCertifications(parsed.certifications || []);
+          setDegreeLevel(parsed.degree_level || '');
           setLanguages(parsed.languages || []);
           setSummary(parsed.summary || '');
           setProjects(parsed.projects || []);
@@ -100,6 +115,7 @@ export default function SampleMakerProfilePage() {
         }
       } catch (err) {
         console.warn('Failed to load intake data', err);
+        console.timeEnd('loadIntake');
       } finally {
         setLoading(false);
       }
@@ -113,38 +129,52 @@ export default function SampleMakerProfilePage() {
     if (!s) return;
     setSkills(prev => Array.from(new Set([...prev, s])));
     setSkillInput("");
+    setIsDirty(true);
   };
 
   const removeSkill = (s: string) => setSkills(prev => prev.filter(x => x !== s));
+  // mark dirty when removing
+  const removeSkillDirty = (s: string) => { removeSkill(s); setIsDirty(true); };
 
   const addCert = () => {
     const s = certInput.trim();
     if (!s) return;
     setCertifications(prev => Array.from(new Set([...prev, s])));
     setCertInput("");
+    setIsDirty(true);
   };
 
   const removeCert = (c: string) => setCertifications(prev => prev.filter(x => x !== c));
+  const removeCertDirty = (c: string) => { removeCert(c); setIsDirty(true); };
 
   const addLang = () => {
     const s = langInput.trim();
     if (!s) return;
     setLanguages(prev => Array.from(new Set([...prev, s])));
     setLangInput("");
+    setIsDirty(true);
   };
 
   const removeLang = (l: string) => setLanguages(prev => prev.filter(x => x !== l));
+  const removeLangDirty = (l: string) => { removeLang(l); setIsDirty(true); };
 
   const handleResume = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf") {
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Please upload a PDF resume.' } }));
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: t('sample.resume_pdf_error', 'Please upload a PDF resume.') } }));
       return;
     }
     setResumeFileName(file.name);
     const dataUrl = await fileToDataUrl(file);
     setResumeDataUrl(dataUrl as string);
+    setIsDirty(true);
+  };
+
+  const removeResume = () => {
+    setResumeFileName(null);
+    setResumeDataUrl(null);
+    setIsDirty(true);
   };
 
   const fileToDataUrl = (file: File) => new Promise<string | null>((resolve, reject) => {
@@ -165,12 +195,15 @@ export default function SampleMakerProfilePage() {
 
   const addProject = () => {
     setProjects(prev => [...prev, { id: genId(), name: '', description: '', skills: [], toolsUsed: [], images: [] }]);
+    setIsDirty(true);
   };
 
   const removeProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
+  const removeProjectDirty = (id: string) => { removeProject(id); setIsDirty(true); };
 
   const updateProject = (id: string, patch: Partial<Project>) => {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+    setIsDirty(true);
   };
 
   const handleProjectImage = async (id: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,12 +215,14 @@ export default function SampleMakerProfilePage() {
     const toAdd = files.slice(0, allowed);
     const dataUrls = await Promise.all(toAdd.map(f => fileToDataUrl(f)));
     updateProject(id, { images: [...current.images, ...dataUrls.filter(Boolean) as string[]] });
+    setIsDirty(true);
   };
 
   const removeProjectImage = (id: string, url: string) => {
     const current = projects.find(p => p.id === id);
     if (!current) return;
     updateProject(id, { images: current.images.filter(u => u !== url) });
+    setIsDirty(true);
   };
 
   const addProjectSkill = (id: string, value: string) => {
@@ -195,6 +230,7 @@ export default function SampleMakerProfilePage() {
     if (!cur) return;
     const next = Array.from(new Set([...cur.skills, value.trim()].filter(Boolean)));
     updateProject(id, { skills: next });
+    setIsDirty(true);
   };
 
   const dataUrlToBlob = async (dataUrl: string) => {
@@ -207,8 +243,20 @@ export default function SampleMakerProfilePage() {
       const blob = await dataUrlToBlob(dataUrl);
       const { data, error } = await supabase.storage.from('intakes').upload(path, blob, { cacheControl: '3600', upsert: true });
       if (error) throw error;
+      // Try to create a signed URL for private access (expires in 1 hour)
+      try {
+        const signedSeconds = 60 * 60; // 1 hour
+        const { data: signedData, error: signedErr } = await supabase.storage.from('intakes').createSignedUrl(path, signedSeconds);
+        if (!signedErr && signedData && signedData.signedUrl) {
+          return signedData.signedUrl as string;
+        }
+      } catch (err) {
+        // continue to fallback
+      }
+
+      // Fallback to public URL if signed URL not available
       const { data: publicData } = supabase.storage.from('intakes').getPublicUrl(path);
-      return publicData.publicUrl || null;
+      return publicData?.publicUrl || null;
     } catch (err) {
       console.warn('Storage upload failed', err);
       return null;
@@ -235,9 +283,12 @@ export default function SampleMakerProfilePage() {
       const user = userData?.user || null;
       const userId = user?.id || null;
 
-      // If user is not authenticated, do not attempt DB insert (will fail under RLS).
+      // If user is not authenticated, save locally (include generated portfolio if provided)
       if (!userId) {
-        try { localStorage.setItem('sample_profile_intake', JSON.stringify(payload)); } catch (e) {}
+        try {
+          const localSave = { ...payload, major, degree_level: degreeLevel, ...(generated ? { generated_portfolio: generated } : {}) };
+          localStorage.setItem('sample_profile_intake', JSON.stringify(localSave));
+        } catch (e) {}
         window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Saved locally. Sign in to persist to Supabase.' } }));
         return;
       }
@@ -267,7 +318,7 @@ export default function SampleMakerProfilePage() {
         projectsWithUrls.push(copied);
       }
 
-      const finalPayload = { ...payload, projects: projectsWithUrls, resume_url } as any;
+      const finalPayload = { ...payload, major, degree_level: degreeLevel, projects: projectsWithUrls, resume_url } as any;
       if (generated) finalPayload.generated_portfolio = generated;
 
       // Upsert into DB table `profile_intakes` (insert if new, update if exists)
@@ -280,6 +331,8 @@ export default function SampleMakerProfilePage() {
           resumeDataUrl: resume_url || resumeDataUrl,
           skills,
           college,
+          major,
+          degree_level: degreeLevel,
           certifications,
           languages,
           summary,
@@ -288,6 +341,10 @@ export default function SampleMakerProfilePage() {
           ...(generated ? { generated_portfolio: generated } : {}),
         },
       };
+      // Also store generated portfolio as a top-level column when provided
+      if (generated) {
+        upsertData.generated_portfolio = generated;
+      }
       // Only add resume_url if we have one (column may or may not exist)
       if (resume_url) {
         upsertData.resume_url = resume_url;
@@ -346,8 +403,8 @@ export default function SampleMakerProfilePage() {
       }
 
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Profile intake saved to Supabase.' } }));
-        // clear generated preview after save
-        setGeneratedPortfolio(null);
+      // mark as saved
+      setIsDirty(false);
     } catch (err) {
       console.warn('Save all failed, falling back to localStorage', err);
       try { localStorage.setItem('sample_profile_intake', JSON.stringify(payload)); } catch (e) {}
@@ -357,27 +414,27 @@ export default function SampleMakerProfilePage() {
 
   const templateThemes = [
     {
-      theme_color: '#1e40af',
-      background_gradient_start: '#0f172a',
-      background_gradient_end: '#1d4ed8',
+      theme_color: '#ce1126',
+      background_gradient_start: '#0b1413',
+      background_gradient_end: '#1f2b27',
       font_style: 'modern',
     },
     {
-      theme_color: '#047857',
-      background_gradient_start: '#022c22',
-      background_gradient_end: '#0f766e',
+      theme_color: '#007a3d',
+      background_gradient_start: '#0b1413',
+      background_gradient_end: '#15302a',
       font_style: 'classic',
     },
     {
-      theme_color: '#9333ea',
-      background_gradient_start: '#3b0764',
-      background_gradient_end: '#a855f7',
+      theme_color: '#d9b88c',
+      background_gradient_start: '#1b120e',
+      background_gradient_end: '#2c1a12',
       font_style: 'playful',
     },
     {
-      theme_color: '#0ea5e9',
-      background_gradient_start: '#0f172a',
-      background_gradient_end: '#0284c7',
+      theme_color: '#111111',
+      background_gradient_start: '#0b1413',
+      background_gradient_end: '#111111',
       font_style: 'tech',
     },
   ];
@@ -427,6 +484,9 @@ export default function SampleMakerProfilePage() {
         summary_point_1: `Challenge: ${baseDescription}`,
         summary_point_2: `Focus: ${skillLine}. Role: ${projectRole}.`,
         summary_point_3: `Impact: Delivered tangible outcomes using ${toolLine}.`,
+        images: project.images || [],
+        skills: project.skills || [],
+        toolsUsed: project.toolsUsed || [],
       };
     });
 
@@ -443,8 +503,21 @@ export default function SampleMakerProfilePage() {
     try {
       const templatePortfolio = buildTemplatePortfolio();
       setGeneratedPortfolio(templatePortfolio);
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Template generated. Creating visual portfolio...' } }));
-      await generatePortfolioImage(templatePortfolio);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Template generated.' } }));
+      // Persist the generated portfolio so the dedicated portfolio view can display it
+      try {
+        await saveAll(templatePortfolio);
+      } catch (err) {
+        console.warn('Failed to save generated portfolio before navigation', err);
+      }
+      // Navigate to portfolio view
+      try {
+        const parts = (pathname || '').split('/').filter(Boolean);
+        const slug = parts[1] || 'mock-id-123';
+        router.push(`/profile/${slug}/portfolio`);
+      } catch (err) {
+        console.warn('Navigation to portfolio failed', err);
+      }
     } catch (e) {
       console.error('Template generation failed', e);
       window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Template generation failed.' } }));
@@ -454,289 +527,263 @@ export default function SampleMakerProfilePage() {
   };
 
   // Generate a visual portfolio image
-  const generatePortfolioImage = async (aiData?: any) => {
-    setRenderingImage(true);
-    try {
-      // Use AI-generated content if available (passed in or from state), otherwise use raw data
-      const sourceData = aiData || generatedPortfolio;
-      
-      const portfolioData = {
-        name: userName || 'Your Name',
-        headline: sourceData?.professional_headline || summary || 'Professional Maker',
-        bio: sourceData?.optimized_bio || summary || '',
-        skills: skills,
-        projects: projects.map((p, i) => ({
-          name: p.name,
-          description: sourceData?.key_project_summary?.[i]?.summary_point_1 
-            ? `${sourceData.key_project_summary[i].summary_point_1} ${sourceData.key_project_summary[i].summary_point_2 || ''} ${sourceData.key_project_summary[i].summary_point_3 || ''}`
-            : p.description,
-          images: p.images,
-          skills: p.skills,
-          toolsUsed: p.toolsUsed,
-        })),
-        profileImage: null, // Could add profile image upload later
-        visualStyle: sourceData?.visual_style || {},
-      };
+  // image rendering removed — we no longer generate a visual PNG; portfolio page uses the JSON directly
 
-      const res = await fetch('/api/portfolio/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ portfolioData }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        console.error('Render error', json);
-        window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: json.message || 'Failed to generate portfolio image.' } }));
-        return;
-      }
-
-      setPortfolioImage(json.image);
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Portfolio image generated!' } }));
-    } catch (e) {
-      console.error(e);
-      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Failed to generate portfolio image.' } }));
-    } finally {
-      setRenderingImage(false);
-    }
-  };
-
-  // Download portfolio image
-  const downloadPortfolioImage = () => {
-    if (!portfolioImage) return;
-    const link = document.createElement('a');
-    link.href = portfolioImage;
-    link.download = `portfolio-${userName || 'maker'}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // portfolio image disabled
 
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">{t('sample.title','Sample Maker Intake')}</h1>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e40af]"></div>
-          <span className="ml-3 text-gray-600">Loading your data...</span>
-        </div>
-      ) : (
-        <>
-      <section className="bg-white p-4 rounded shadow mb-4">
-        <label className="block text-sm font-medium mb-2">{t('sample.resume','Resume (PDF)')}</label>
-        <input type="file" accept="application/pdf" onChange={handleResume} />
-        {resumeFileName && <p className="text-sm mt-2">{resumeFileName}</p>}
-      </section>
-
-      <section className="bg-white p-4 rounded shadow mb-4">
-        <h2 className="font-semibold mb-2">{t('sample.basics','Basics')}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium">{t('sample.name','Your Name')}</label>
-            <input value={userName} onChange={e => setUserName(e.target.value)} placeholder="John Doe" className="w-full border p-2 rounded" />
+    <div
+      dir={dir}
+      className="min-h-screen bg-[radial-gradient(circle_at_15%_15%,#223a34_0%,transparent_45%),linear-gradient(180deg,#0b1413_0%,#0f1c1a_50%,#141a17_100%)] text-[#f4efe6]"
+    >
+      <main className="mx-auto w-full max-w-6xl px-6 py-10">
+        <header className={`rounded-[32px] border border-[#2e403a] bg-gradient-to-br from-[#0f2a25] via-[#132f2a] to-[#0c1c19] p-8 shadow-[0_30px_90px_-50px_rgba(0,0,0,0.8)] ${align}`}>
+          <p className="text-xs uppercase tracking-[0.35em] text-[#d9b88c]">{t('sample.kicker', 'Maker intake')}</p>
+          <h1 className="font-display mt-4 text-3xl text-[#f7f1e7] sm:text-4xl">{t('sample.title','Sample Maker Intake')}</h1>
+          <p className="mt-3 text-sm text-[#cfc8be]">{t('sample.intro', 'Tell your story once. We organize it into a portfolio that connects you with mentors, teams, and local opportunities.')}</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <span className="rounded-full border border-[#3b4b44] bg-[#172421] px-4 py-2 text-xs text-[#e8dcc5]">{t('sample.badge_1', '100 makers pilot')}</span>
+            <span className="rounded-full border border-[#3b4b44] bg-[#172421] px-4 py-2 text-xs text-[#e8dcc5]">{t('sample.badge_2', 'Arabic + English')}</span>
+            <span className="rounded-full border border-[#3b4b44] bg-[#172421] px-4 py-2 text-xs text-[#e8dcc5]">{t('sample.badge_3', 'Sudan + Egypt focus')}</span>
           </div>
+        </header>
 
-          <div>
-            <label className="block text-sm font-medium">{t('sample.college','College')}</label>
-            <input value={college} onChange={e => setCollege(e.target.value)} className="w-full border p-2 rounded" />
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-12 w-12 animate-spin rounded-full border-2 border-[#2e403a] border-t-[#ce1126]"></div>
+            <span className="ml-3 text-sm text-[#cfc8be]">{t('sample.loading', 'Loading your data...')}</span>
           </div>
+        ) : (
+          <div className="mt-10 space-y-6">
+            <section className="rounded-2xl border border-[#2e403a] bg-[#111f1c]/90 p-6">
+              <label className="block text-sm text-[#e8dcc5]">{t('sample.resume','Resume (PDF)')}</label>
+              <p className="mt-2 text-xs text-[#9ca3af]">{t('sample.resume_help', 'Upload a PDF resume to enrich your portfolio and skills matching.')}</p>
 
-          <div>
-            <label className="block text-sm font-medium">{t('sample.languages','Languages')}</label>
-            <div className="flex gap-2">
-              <input value={langInput} onChange={e => setLangInput(e.target.value)} placeholder={t('sample.add_language','Add language')} className="flex-1 border p-2 rounded" />
-              <button type="button" onClick={addLang} className="px-3 py-1 bg-[#1e40af] text-white rounded">+</button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {languages.map(l => (
-                <span key={l} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                  <span className="text-sm">{l}</span>
-                  <button onClick={() => removeLang(l)} className="text-xs text-red-500">×</button>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium">{t('sample.certifications','Certifications')}</label>
-          <div className="flex gap-2 mt-2">
-            <input value={certInput} onChange={e => setCertInput(e.target.value)} placeholder={t('sample.add_cert','Add certification')} className="flex-1 border p-2 rounded" />
-            <button type="button" onClick={addCert} className="px-3 py-1 bg-[#1e40af] text-white rounded">+</button>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {certifications.map(c => (
-              <span key={c} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                <span className="text-sm">{c}</span>
-                <button onClick={() => removeCert(c)} className="text-xs text-red-500">×</button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium">{t('sample.skills','Skills')}</label>
-          <div className="flex gap-2 mt-2">
-            <input value={skillInput} onChange={e => setSkillInput(e.target.value)} placeholder={t('sample.add_skill','Add skill')} className="flex-1 border p-2 rounded" />
-            <button type="button" onClick={addSkill} className="px-3 py-1 bg-[#1e40af] text-white rounded">+</button>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {skills.map(s => (
-              <span key={s} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                <span className="text-sm">{s}</span>
-                <button onClick={() => removeSkill(s)} className="text-xs text-red-500">×</button>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium">{t('sample.summary','Short summary')}</label>
-          <textarea value={summary} onChange={e => setSummary(e.target.value)} className="w-full border p-2 rounded h-28" />
-        </div>
-      </section>
-
-      <section className="bg-white p-4 rounded shadow mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">{t('sample.projects','Projects')}</h2>
-          <div className="flex gap-2">
-            <button onClick={addProject} className="px-3 py-1 bg-green-600 text-white rounded">+ {t('sample.add_project','Add Project')}</button>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {projects.map((p, idx) => (
-            <div key={p.id} className="border p-3 rounded">
-              <div className="flex justify-between items-start">
-                <h3 className="font-medium">{t('sample.project')} {idx + 1}</h3>
-                <button onClick={() => removeProject(p.id)} className="text-red-500">{t('sample.remove','Remove')}</button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                <div>
-                  <label className="block text-sm font-medium">{t('sample.project_name','Project name')}</label>
-                  <input value={p.name} onChange={e => updateProject(p.id, { name: e.target.value })} className="w-full border p-2 rounded" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium">{t('sample.project_skills','Skills')}</label>
-                  <input placeholder={t('sample.add_skill','Add skill')} onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); addProjectSkill(p.id, (e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; }
-                  }} className="w-full border p-2 rounded" />
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {p.skills.map(s => (
-                      <span key={s} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                        <span className="text-sm">{s}</span>
-                        <button onClick={() => updateProject(p.id, { skills: p.skills.filter(x => x !== s) })} className="text-xs text-red-500">×</button>
-                      </span>
-                    ))}
+              {!resumeFileName ? (
+                <label className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#2e403a] bg-[#0f1a17] px-4 py-2 text-sm text-[#e8dcc5] hover:border-[#3a4a44] hover:text-[#f0d6a8] cursor-pointer">
+                  {t('sample.choose_resume', 'Choose resume')}
+                  <input type="file" accept="application/pdf" onChange={handleResume} className="hidden" />
+                </label>
+              ) : (
+                <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#2e403a] bg-[#0f1a17] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-[#f7f1e7] truncate">{resumeFileName}</p>
+                    <p className="text-xs text-[#9ca3af]">{t('sample.resume_added', 'Resume added')}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="rounded-full border border-[#2e403a] px-3 py-1 text-xs text-[#e8dcc5] hover:border-[#3a4a44] hover:text-[#f0d6a8] cursor-pointer">
+                      {t('sample.change_resume', 'Change')}
+                      <input type="file" accept="application/pdf" onChange={handleResume} className="hidden" />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={removeResume}
+                      className="rounded-full bg-[#ce1126] px-3 py-1 text-xs font-semibold text-white hover:bg-[#e32636]"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
+            </section>
 
-              <div className="mt-3">
-                <label className="block text-sm font-medium">{t('sample.project_description','Description')}</label>
-                <textarea value={p.description} onChange={e => updateProject(p.id, { description: e.target.value })} className="w-full border p-2 rounded h-24" />
-              </div>
+            <section className="rounded-2xl border border-[#2e403a] bg-[#111f1c]/90 p-6">
+              <h2 className={`font-semibold text-[#f7f1e7] ${align}`}>{t('sample.basics','Basics')}</h2>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="text-sm text-[#e8dcc5]">
+                  {t('sample.name','Your Name')}
+                  <input value={userName} onChange={e => { setUserName(e.target.value); setIsDirty(true); }} placeholder={t('sample.name_placeholder', 'John Doe')} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+                </label>
 
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-sm text-[#e8dcc5]">
+                  {t('sample.college','College')}
+                  <input value={college} onChange={e => { setCollege(e.target.value); setIsDirty(true); }} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+                </label>
+
+                <label className="text-sm text-[#e8dcc5]">
+                  {t('sample.major','Major / Degree')}
+                  <input value={major} onChange={e => { setMajor(e.target.value); setIsDirty(true); }} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+                </label>
+
+                <label className="text-sm text-[#e8dcc5]">
+                  {t('sample.degree_level','Degree Level')}
+                  <select value={degreeLevel} onChange={e => { setDegreeLevel(e.target.value); setIsDirty(true); }} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]">
+                    <option value="">{t('sample.degree_placeholder', 'Select level')}</option>
+                    <option value="Undergraduate">{t('sample.degree_undergrad', 'Undergraduate')}</option>
+                    <option value="Graduate">{t('sample.degree_grad', 'Graduate')}</option>
+                    <option value="PhD">{t('sample.degree_phd', 'PhD')}</option>
+                  </select>
+                </label>
+
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium">{t('sample.tools_used','Tools Used (software, hardware, etc.)')}</label>
-                  <input placeholder={t('sample.add_tool','Add tool')} onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const val = (e.target as HTMLInputElement).value.trim();
-                      if (val && !p.toolsUsed.includes(val)) {
-                        updateProject(p.id, { toolsUsed: [...p.toolsUsed, val] });
-                      }
-                      (e.target as HTMLInputElement).value = '';
-                    }
-                  }} className="w-full border p-2 rounded" />
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {p.toolsUsed.map(tool => (
-                      <span key={tool} className="bg-gray-100 px-2 py-1 rounded flex items-center gap-2">
-                        <span className="text-sm">{tool}</span>
-                        <button onClick={() => updateProject(p.id, { toolsUsed: p.toolsUsed.filter(t => t !== tool) })} className="text-xs text-red-500">×</button>
+                  <label className="block text-sm text-[#e8dcc5]">{t('sample.languages','Languages')}</label>
+                  <div className="mt-2 flex gap-2">
+                    <input value={langInput} onChange={e => setLangInput(e.target.value)} placeholder={t('sample.add_language','Add language')} className="flex-1 rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+                    <button type="button" onClick={addLang} className="rounded-full bg-[#007a3d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b8d49]">+</button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {languages.map(l => (
+                      <span key={l} className="flex items-center gap-2 rounded-full border border-[#2e403a] bg-[#172421] px-3 py-1 text-xs text-[#e8dcc5]">
+                        <span>{l}</span>
+                        <button onClick={() => removeLang(l)} className="text-xs text-[#f0a37f]">×</button>
                       </span>
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-3">
-                <label className="block text-sm font-medium">{t('sample.project_images','Project images (up to 3)')}</label>
-                <input type="file" accept="image/*" multiple onChange={e => handleProjectImage(p.id, e)} />
-                <div className="flex gap-2 mt-2">
-                  {p.images.map(url => (
-                    <div key={url} className="w-24 h-24 bg-gray-100 rounded overflow-hidden relative">
-                      <img src={url} alt="project" className="w-full h-full object-cover" />
-                      <button onClick={() => removeProjectImage(p.id, url)} className="absolute top-1 right-1 bg-white rounded-full px-1 text-red-500">×</button>
-                    </div>
+              <div className="mt-6">
+                <label className="block text-sm text-[#e8dcc5]">{t('sample.certifications','Certifications')}</label>
+                <div className="mt-2 flex gap-2">
+                  <input value={certInput} onChange={e => setCertInput(e.target.value)} placeholder={t('sample.add_cert','Add certification')} className="flex-1 rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+                  <button type="button" onClick={addCert} className="rounded-full bg-[#007a3d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b8d49]">+</button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {certifications.map(c => (
+                    <span key={c} className="flex items-center gap-2 rounded-full border border-[#2e403a] bg-[#172421] px-3 py-1 text-xs text-[#e8dcc5]">
+                      <span>{c}</span>
+                      <button onClick={() => removeCertDirty(c)} className="text-xs text-[#f0a37f]">×</button>
+                    </span>
                   ))}
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
-      <div className="flex gap-3 flex-wrap">
-        <button onClick={() => saveAll(generatedPortfolio)} className="px-4 py-2 bg-[#1e40af] text-white rounded">{t('sample.save','Save')}</button>
-        <button onClick={generateWithAI} disabled={generating || renderingImage} className="px-4 py-2 border rounded">
-          {generating || renderingImage ? t('sample.generating','Generating Portfolio...') : t('sample.customize_ai','Customize with AI')}
-        </button>
-      </div>
+              <div className="mt-6">
+                <label className="block text-sm text-[#e8dcc5]">{t('sample.skills','Skills')}</label>
+                <div className="mt-2 flex gap-2">
+                  <input value={skillInput} onChange={e => setSkillInput(e.target.value)} placeholder={t('sample.add_skill','Add skill')} className="flex-1 rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+                  <button type="button" onClick={addSkill} className="rounded-full bg-[#007a3d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b8d49]">+</button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {skills.map(s => (
+                    <span key={s} className="flex items-center gap-2 rounded-full border border-[#2e403a] bg-[#172421] px-3 py-1 text-xs text-[#e8dcc5]">
+                      <span>{s}</span>
+                      <button onClick={() => removeSkillDirty(s)} className="text-xs text-[#f0a37f]">×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
 
-      {/* Portfolio Image Preview */}
-      {portfolioImage && (
-        <section className="mt-4 bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-3">{t('sample.portfolio_image','Your Portfolio Image')}</h3>
-          <div className="border rounded-lg overflow-hidden">
-            <img src={portfolioImage} alt="Generated Portfolio" className="w-full" />
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={downloadPortfolioImage} className="px-4 py-2 bg-green-600 text-white rounded">
-              {t('sample.download_image','Download Image')}
-            </button>
-            <button onClick={() => setPortfolioImage(null)} className="px-4 py-2 border rounded">
-              {t('sample.dismiss','Dismiss')}
-            </button>
-          </div>
-        </section>
-      )}
+              <div className="mt-6">
+                <label className="block text-sm text-[#e8dcc5]">{t('sample.summary','Short summary')}</label>
+                <textarea value={summary} onChange={e => { setSummary(e.target.value); setIsDirty(true); }} className="mt-2 h-28 w-full rounded-xl border border-[#2b3a35] bg-[#0f1a17] px-4 py-3 text-[#f7f1e7]" />
+              </div>
+            </section>
 
-      {generatedPortfolio && (
-        <section className="mt-4 bg-white p-4 rounded shadow">
-          <h3 className="font-semibold mb-2">{t('sample.ai_preview','AI Preview')}</h3>
-          <div className="prose max-w-none">
-            {generatedPortfolio.professional_headline && <h4 className="text-lg font-bold">{generatedPortfolio.professional_headline}</h4>}
-            {generatedPortfolio.optimized_bio && <p className="mt-2 text-gray-700">{generatedPortfolio.optimized_bio}</p>}
-            {generatedPortfolio.key_project_summary && generatedPortfolio.key_project_summary.length > 0 && (
-              <div className="mt-4">
-                <h5 className="font-semibold">{t('sample.projects','Projects')}</h5>
-                {generatedPortfolio.key_project_summary.map((proj: any, idx: number) => (
-                  <div key={idx} className="mt-2 border-l-2 border-blue-500 pl-3">
-                    <p className="font-medium">{proj.project_title}</p>
-                    <ul className="list-disc ml-5 text-sm text-gray-600">
-                      {proj.summary_point_1 && <li>{proj.summary_point_1}</li>}
-                      {proj.summary_point_2 && <li>{proj.summary_point_2}</li>}
-                      {proj.summary_point_3 && <li>{proj.summary_point_3}</li>}
-                    </ul>
+            <section className="rounded-2xl border border-[#2e403a] bg-[#111f1c]/90 p-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className={`font-semibold text-[#f7f1e7] ${align}`}>{t('sample.projects','Projects')}</h2>
+                <button onClick={addProject} className="rounded-full bg-[#007a3d] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b8d49]">
+                  + {t('sample.add_project','Add Project')}
+                </button>
+              </div>
+
+              <div className="mt-4 space-y-4">
+                {projects.map((p, idx) => (
+                  <div key={p.id} className="rounded-2xl border border-[#2e403a] bg-[#0f1a17] p-4">
+                    <div className="flex items-start justify-between">
+                      <h3 className="font-medium text-[#f7f1e7]">{t('sample.project')} {idx + 1}</h3>
+                      <button onClick={() => removeProjectDirty(p.id)} className="text-xs text-[#f0a37f]">{t('sample.remove','Remove')}</button>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <label className="text-sm text-[#e8dcc5]">
+                        {t('sample.project_name','Project name')}
+                        <input value={p.name} onChange={e => updateProject(p.id, { name: e.target.value })} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0b1413] px-4 py-3 text-[#f7f1e7]" />
+                      </label>
+
+                      <div>
+                        <label className="block text-sm text-[#e8dcc5]">{t('sample.project_skills','Skills')}</label>
+                        <input placeholder={t('sample.add_skill','Add skill')} onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); addProjectSkill(p.id, (e.target as HTMLInputElement).value); (e.target as HTMLInputElement).value = ''; }
+                        }} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0b1413] px-4 py-3 text-[#f7f1e7]" />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {p.skills.map(s => (
+                            <span key={s} className="flex items-center gap-2 rounded-full border border-[#2e403a] bg-[#172421] px-3 py-1 text-xs text-[#e8dcc5]">
+                              <span>{s}</span>
+                              <button onClick={() => updateProject(p.id, { skills: p.skills.filter(x => x !== s) })} className="text-xs text-[#f0a37f]">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm text-[#e8dcc5]">{t('sample.project_description','Description')}</label>
+                      <textarea value={p.description} onChange={e => updateProject(p.id, { description: e.target.value })} className="mt-2 h-24 w-full rounded-xl border border-[#2b3a35] bg-[#0b1413] px-4 py-3 text-[#f7f1e7]" />
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm text-[#e8dcc5]">{t('sample.tools_used','Tools Used (software, hardware, etc.)')}</label>
+                      <input placeholder={t('sample.add_tool','Add tool')} onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = (e.target as HTMLInputElement).value.trim();
+                          if (val && !p.toolsUsed.includes(val)) {
+                            updateProject(p.id, { toolsUsed: [...p.toolsUsed, val] });
+                          }
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }} className="mt-2 w-full rounded-xl border border-[#2b3a35] bg-[#0b1413] px-4 py-3 text-[#f7f1e7]" />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {p.toolsUsed.map(tool => (
+                          <span key={tool} className="flex items-center gap-2 rounded-full border border-[#2e403a] bg-[#172421] px-3 py-1 text-xs text-[#e8dcc5]">
+                            <span>{tool}</span>
+                            <button onClick={() => updateProject(p.id, { toolsUsed: p.toolsUsed.filter(t => t !== tool) })} className="text-xs text-[#f0a37f]">×</button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <label className="block text-sm text-[#e8dcc5]">{t('sample.project_images','Project images (up to 3)')}</label>
+                      <input type="file" accept="image/*" multiple onChange={e => handleProjectImage(p.id, e)} className="mt-2 text-sm text-[#cfc8be]" />
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {p.images.map(url => (
+                          <div key={url} className="relative h-24 w-24 overflow-hidden rounded-xl border border-[#2e403a] bg-[#0b1413]">
+                            <img src={url} alt="project" className="h-full w-full object-cover" />
+                            <button onClick={() => removeProjectImage(p.id, url)} className="absolute right-1 top-1 rounded-full bg-[#0b1413]/80 px-2 text-xs text-[#f0a37f]">×</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-            )}
+            </section>
+
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => saveAll(generatedPortfolio)} className="rounded-full bg-[#ce1126] px-6 py-3 text-sm font-semibold text-white hover:bg-[#e32636]">
+                {t('sample.save','Save')}
+              </button>
+              {generatedPortfolio ? (
+                isDirty ? (
+                  <button onClick={generateWithAI} disabled={generating || renderingImage} className="rounded-full border border-[#2e403a] bg-[#1a2824] px-6 py-3 text-sm text-[#f0d6a8] hover:border-[#3a4a44]">
+                    {generating || renderingImage ? t('sample.generating','Generating Portfolio...') : t('sample.update_portfolio','Update Portfolio')}
+                  </button>
+                ) : (
+                  <button onClick={() => {
+                    try {
+                      const parts = (pathname || '').split('/').filter(Boolean);
+                      const slug = parts[1] || 'mock-id-123';
+                      router.push(`/profile/${slug}/portfolio`);
+                    } catch (err) {
+                      console.warn('View portfolio navigation failed', err);
+                    }
+                  }} className="rounded-full bg-[#007a3d] px-6 py-3 text-sm font-semibold text-white hover:bg-[#0b8d49]">
+                    {t('sample.view_portfolio','View My Portfolio')}
+                  </button>
+                )
+              ) : (
+                <button onClick={generateWithAI} disabled={generating || renderingImage} className="rounded-full border border-[#2e403a] bg-[#1a2824] px-6 py-3 text-sm text-[#f0d6a8] hover:border-[#3a4a44]">
+                  {generating || renderingImage ? t('sample.generating','Generating Portfolio...') : t('sample.customize_ai','Customize with AI')}
+                </button>
+              )}
+            </div>
           </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={() => saveAll(generatedPortfolio)} className="px-3 py-1 bg-green-600 text-white rounded">{t('sample.apply_generated','Save Generated')}</button>
-            <button onClick={() => setGeneratedPortfolio(null)} className="px-3 py-1 border rounded">{t('sample.dismiss','Dismiss')}</button>
-          </div>
-        </section>
-      )}
-        </>
-      )}
+        )}
+      </main>
     </div>
   );
 }

@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     if (!countries.includes('Palestine')) countries.unshift('Palestine');
     countries.sort((a, b) => a.localeCompare(b));
     return NextResponse.json({ countries });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Failed to load locations' }, { status: 500 });
   }
 }
