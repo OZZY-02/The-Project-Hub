@@ -272,7 +272,7 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
     const router = useRouter();
     const profileId = params.id;
     const { locale } = useTranslation();
-    const language = locale === 'ar' ? 'ar' : 'en';
+    const language: 'en' | 'ar' = locale === 'ar' ? 'ar' : 'en';
 
     const [profile, setProfile] = useState<Profile | null>(null);
     const [skills, setSkills] = useState<Skill[]>([]);

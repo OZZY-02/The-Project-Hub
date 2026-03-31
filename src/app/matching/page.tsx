@@ -434,7 +434,7 @@ export default function MatchingPage() {
         const { data: candidates } = await query;
         const rows = (candidates || []) as ProfileRow[];
 
-        const mapped = rows.map((row) => ({
+        const mapped: MatchCard[] = rows.map((row) => ({
           id: row.id,
           title: `${row.first_name || ""} ${row.last_name || ""}`.trim() || t("matching.unnamed", "Maker"),
           subtitle: row.bio || t("matching.no_bio", "Emerging maker profile"),
