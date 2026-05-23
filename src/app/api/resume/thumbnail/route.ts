@@ -40,8 +40,6 @@ export async function GET(req: Request) {
         // Dynamically import server-friendly pdfjs build
         // @ts-expect-error pdfjs-dist legacy server build is not typed for this import path.
         const pdfjs = await import('pdfjs-dist/legacy/build/pdf');
-        // Import node-canvas for server drawing
-        // @ts-expect-error canvas exposes runtime bindings that are not surfaced by this dynamic import.
         const { createCanvas } = await import('canvas');
 
         const loadingTask = pdfjs.getDocument({ data: buffer });
