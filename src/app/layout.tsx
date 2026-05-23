@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Noto_Sans_Arabic, Space_Grotesk } from "next/font/google";
+import { DM_Sans, Noto_Naskh_Arabic, Noto_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import AuthGuard from "../components/AuthGuard";
 import SiteHeader from "../components/SiteHeader";
@@ -7,13 +7,13 @@ import Toast from "../components/Toast";
 import { I18nProvider } from "../lib/i18n";
 import { ThemeProvider } from "../lib/theme";
 
-const displayFont = Manrope({
+const displayFont = DM_Sans({
   variable: "--font-display-latin",
   subsets: ["latin"],
   weight: ["600", "700", "800"],
 });
 
-const bodyLatin = Space_Grotesk({
+const bodyLatin = DM_Sans({
   variable: "--font-body-latin",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -21,6 +21,12 @@ const bodyLatin = Space_Grotesk({
 
 const bodyArabic = Noto_Sans_Arabic({
   variable: "--font-body-arabic",
+  subsets: ["arabic"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const displayArabic = Noto_Naskh_Arabic({
+  variable: "--font-display-arabic",
   subsets: ["arabic"],
   weight: ["400", "500", "600", "700"],
 });
@@ -37,7 +43,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${displayFont.variable} ${bodyLatin.variable} ${bodyArabic.variable} antialiased`}>
+      <body className={`${displayFont.variable} ${bodyLatin.variable} ${bodyArabic.variable} ${displayArabic.variable} antialiased`}>
         <ThemeProvider>
           <I18nProvider>
             <SiteHeader />

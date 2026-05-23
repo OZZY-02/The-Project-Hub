@@ -169,7 +169,7 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black opacity-40" onClick={() => onClose && onClose()} />
-            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl z-10">
+            <form onSubmit={handleSubmit} className="bg-white text-gray-900 rounded-lg shadow-xl p-6 w-full max-w-2xl z-10 overflow-y-auto max-h-[90vh]">
                 <h3 className="text-2xl font-bold mb-4">{t('Form.title', 'Create Your Profile')}</h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -312,8 +312,8 @@ export default function ProfileRegistrationForm({ onClose, onSaved }: { onClose?
                 {message && <p className="mt-3 text-sm text-gray-700">{message}</p>}
 
                 <div className="mt-4 flex items-center justify-end gap-3">
-                    <button type="button" onClick={() => onClose && onClose()} className="px-4 py-2 rounded border">{t('Form.cancel','Cancel')}</button>
-                    <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-[#1e40af] text-white">{loading ? t('Form.saving','Saving...') : t('Form.submit_button','Save Profile')}</button>
+                    <button type="button" onClick={() => onClose && onClose()} className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Form.cancel','Cancel')}</button>
+                    <button type="submit" disabled={loading} className="px-4 py-2 rounded bg-[#1e40af] text-white hover:bg-blue-700">{loading ? t('Form.saving','Saving...') : t('Form.submit_button','Save Profile')}</button>
                 </div>
 
                 <div className="mt-3 text-xs text-gray-500">

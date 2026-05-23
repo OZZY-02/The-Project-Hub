@@ -311,10 +311,10 @@ export default function GeneratedPortfolioPage() {
   if (loading) return <div className="p-6">{t('sample.loading','Loading portfolio...')}</div>;
   if (!intake) return (
     <div dir={dir} className="min-h-screen bg-[#0b1413] p-6 text-[#f4efe6]">
-      <h1 className={`font-display text-2xl ${align}`}>{t('sample.no_data','No intake data found')}</h1>
+      <h1 className={`font-display text-2xl ${align}`}>{t('sample.no_data','No profile data found')}</h1>
       <p className={`mt-2 text-sm text-[#cfc8be] ${align}`}>{t('sample.no_data_help','Complete the Sample Maker Intake form first to generate a portfolio.')}</p>
       <button onClick={() => router.push('/profile/mock-id-123')} className="mt-4 inline-flex items-center rounded-full bg-[#ce1126] px-4 py-2 text-sm font-semibold text-white hover:bg-[#e32636]">
-        <Upload size={16} className="mr-2" /> {t('sample.start_intake','Start Intake Form')}
+        <Upload size={16} className="mr-2" /> {t('sample.start_intake','Build Your Profile')}
       </button>
     </div>
   );
@@ -597,7 +597,7 @@ export default function GeneratedPortfolioPage() {
                 }}
                 className="rounded-full border border-[#e3c89a] px-4 py-2 text-sm text-[#f7f1e7] hover:bg-[#1a2a26]"
               >
-                {t('sample.edit_portfolio','Edit Intake')}
+                {t('sample.edit_portfolio','Edit Profile')}
               </button>
               {resumeHref && (
                 <a href={resumeHref} target="_blank" rel="noreferrer" download className="rounded-full bg-[#ce1126] px-4 py-2 text-sm font-semibold text-white hover:bg-[#e32636]">
@@ -805,7 +805,7 @@ export default function GeneratedPortfolioPage() {
               <button
                 ref={closeBtnRef}
                 onClick={() => setLightboxSrc(null)}
-                className="absolute top-2 right-2 z-50 p-2 rounded bg-white/90 shadow"
+                className="absolute top-2 right-2 z-50 p-2 rounded bg-white/90 text-gray-800 shadow hover:bg-white"
                 aria-label={t('sample.close','Close')}
               >
                 <X size={20} />

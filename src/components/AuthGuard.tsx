@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import supabase from '../lib/supabaseClient';
 
-const protectedPrefixes = ['/matching', '/profile/settings'];
+const protectedPrefixes = ['/matching', '/mentorship', '/profile/settings'];
 
 function isPublicPath(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -16,12 +16,16 @@ function isPublicPath(pathname: string | null): boolean {
   return !protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+const FOUNDER_MODE = process.env.NEXT_PUBLIC_FOUNDER_MODE === 'true';
+
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(!FOUNDER_MODE);
 
   useEffect(() => {
+    if (FOUNDER_MODE) return;
+
     let mounted = true;
     (async () => {
       if (isPublicPath(pathname)) {
