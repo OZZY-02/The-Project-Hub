@@ -186,7 +186,7 @@ export default function HomePage() {
 
               {/* CTA buttons */}
               <div className="mt-10 flex flex-wrap gap-3">
-                <Link href="#portfolio" className={primaryButtonClass}>
+                <Link href="#platform-features" className={primaryButtonClass}>
                   {t("home.cta_portfolio", "Build your Portfolio")}
                   <ArrowRight size={16} className="ms-2 rtl:rotate-180" />
                 </Link>
@@ -396,7 +396,7 @@ export default function HomePage() {
         </section>
 
         {/* ── WHAT THE PLATFORM DOES (outside box) ── */}
-        <div className={`${align} px-2`}>
+        <div id="platform-features" className={`scroll-mt-24 ${align} px-2`}>
           <p className={`text-sm font-medium ${mutedTextClass}`}>
             {t("home.platform_label", "What the platform does")}
           </p>
