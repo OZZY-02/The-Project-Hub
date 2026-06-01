@@ -11,6 +11,7 @@ import {
   UserCircle2, Trash2, Image as ImageIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
+import { getProfileBuilderHref } from "../../lib/utils";
 
 type ProfileRow = {
   id: string;
@@ -358,6 +359,8 @@ export default function MatchingPage() {
     });
   }, [allMatches, filterPlaces, filterFocusTags, filterSkillTags, selectedTypes, activeTab, searchQuery]);
 
+  const profileBuilderHref = getProfileBuilderHref(currentUserId, currentProfile);
+
   const counts = useMemo(() => ({
     all: allMatches.length,
     project: allMatches.filter(m => m.type === "project").length,
@@ -406,14 +409,15 @@ export default function MatchingPage() {
             {[t("matching.badge_1","Pilot: 100 makers"), t("matching.badge_2","Arabic + English"), t("matching.badge_3","Cairo + Alexandria")].map(b => (
               <span key={b} className={`rounded-full border px-3 py-1 text-xs font-medium ${isLight ? "border-slate-900/10 bg-white text-slate-600" : "border-white/10 bg-white/5 text-[#9eabc4]"}`}>{b}</span>
             ))}
-            {savedIds.size > 0 && (
-              <Link href="/matching/saved"
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150 ${
-                  isLight ? "border-[#2258d1]/20 bg-[#2258d1]/5 text-[#2258d1] hover:bg-[#2258d1]/10" : "border-[#8fb7ff]/20 bg-[#8fb7ff]/5 text-[#8fb7ff] hover:bg-[#8fb7ff]/10"
-                }`}>
-                <BookmarkCheck size={12} /> {savedIds.size} saved
-              </Link>
-            )}
+            <Link href="/matching/saved"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-150 ${
+                isLight ? "border-[#2258d1]/20 bg-[#2258d1]/5 text-[#2258d1] hover:bg-[#2258d1]/10" : "border-[#8fb7ff]/20 bg-[#8fb7ff]/5 text-[#8fb7ff] hover:bg-[#8fb7ff]/10"
+              }`}>
+              <BookmarkCheck size={12} />
+              {savedIds.size > 0
+                ? t("matching.saved_count", "{count} saved").replace("{count}", String(savedIds.size))
+                : t("matching.view_saved", "View Saved Matches")}
+            </Link>
           </div>
         </div>
 
@@ -442,7 +446,7 @@ export default function MatchingPage() {
                   </div>
                 ))}
               </div>
-              <Link href="/profile/mock-id-123"
+              <Link href={profileBuilderHref}
                 className={`mt-5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
                   isLight ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"
                 }`}>

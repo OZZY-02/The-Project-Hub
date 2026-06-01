@@ -23,6 +23,7 @@ import { InfiniteGrid } from "../components/ui/the-infinite-grid";
 import supabase from "../lib/supabaseClient";
 import { useTranslation } from "../lib/i18n";
 import { useTheme } from "../lib/theme";
+import { getProfileBuilderHref } from "../lib/utils";
 
 function TypingFeatureTitle({
   locale,
@@ -150,6 +151,8 @@ export default function HomePage() {
     ? "rounded-xl border border-slate-900/10 bg-slate-50/80 p-4"
     : "rounded-xl border border-white/10 bg-white/3 p-4";
 
+  const portfolioBuilderHref = getProfileBuilderHref(user?.id ?? null, profileComplete);
+
   return (
     <div dir={dir} className={shellClass}>
       <InfiniteGrid isLight={isLight} className="pointer-events-auto" />
@@ -186,7 +189,7 @@ export default function HomePage() {
 
               {/* CTA buttons */}
               <div className="mt-10 flex flex-wrap gap-3">
-                <Link href="#portfolio" className={primaryButtonClass}>
+                <Link href="#platform-features" className={primaryButtonClass}>
                   {t("home.cta_portfolio", "Build your Portfolio")}
                   <ArrowRight size={16} className="ms-2 rtl:rotate-180" />
                 </Link>
@@ -396,7 +399,7 @@ export default function HomePage() {
         </section>
 
         {/* ── WHAT THE PLATFORM DOES (outside box) ── */}
-        <div className={`${align} px-2`}>
+        <div id="platform-features" className={`scroll-mt-24 ${align} px-2`}>
           <p className={`text-sm font-medium ${mutedTextClass}`}>
             {t("home.platform_label", "What the platform does")}
           </p>
@@ -568,7 +571,7 @@ export default function HomePage() {
                   [t("footer.browse_projects", "Browse Projects"), "/matching"],
                   [t("footer.matching_hub", "Matching Hub"), "/matching"],
                   [t("footer.mentor_network", "Mentor Network"), "/mentorship"],
-                  [t("footer.portfolio_builder", "Portfolio Builder"), "/profile/mock-id-123"],
+                  [t("footer.portfolio_builder", "Portfolio Builder"), portfolioBuilderHref],
                 ].map(([label, href]) => (
                   <li key={label}>
                     <Link href={href} className={`text-sm transition-colors duration-150 ${secondaryTextClass} ${isLight ? "hover:text-slate-950" : "hover:text-white"}`}>

@@ -19,6 +19,8 @@
     "sign_in": "Sign In",
     "sign_up": "Sign Up",
     "edit_profile": "Edit Profile",
+    "sign_out": "Sign Out",
+    "signing_out": "Signing out…",
     "start_profile": "Start My Profile Now",
     "language_label_en": "English",
     "language_label_ar": "العربية"
@@ -235,7 +237,10 @@
     "no_avatar": "No avatar",
     "upload_button": "Upload",
     "avatar_saved": "Avatar saved in profile.",
-    "save_button": "Save Settings"
+    "save_button": "Save Settings",
+    "sign_out_title": "Sign out",
+    "sign_out_hint": "End your session on this device.",
+    "sign_out_error": "Failed to sign out."
   },
   "auth": {
     "signup": "Sign Up",
@@ -431,6 +436,10 @@
     "saved_kicker": "Saved matches",
     "saved_title": "Your saved matches",
     "saved_subtitle": "Keep track of makers, mentors, and projects you want to revisit.",
+    "view_saved": "View Saved Matches",
+    "saved_count": "{count} saved",
+    "back_to_matching": "Back to matching",
+    "browse_matches": "Browse matches",
     "loading_saved": "Loading saved matches...",
     "saved_empty": "You have no saved matches yet."
     ,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslation } from "../../lib/i18n";
 import { useTheme } from "../../lib/theme";
 import supabase from "../../lib/supabaseClient";
+import { getProfileBuilderHref } from "../../lib/utils";
 import {
   ArrowLeft,
   ArrowRight,
@@ -237,6 +238,8 @@ export default function MentorshipPage() {
 
   const [loading, setLoading] = useState(true);
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentProfile, setCurrentProfile] = useState<ProfileRow | null>(null);
   const [activeCategory, setActiveCategory] = useState<MentorCategory>("all");
   const [activeTab, setActiveTab] = useState<"mentors" | "offerings">("mentors");
   const [searchQuery, setSearchQuery] = useState("");
@@ -261,6 +264,17 @@ export default function MentorshipPage() {
       try {
         const { data: ud } = await supabase.auth.getUser();
         const user = ud?.user;
+        if (mounted) setCurrentUserId(user?.id ?? null);
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id, first_name, last_name, location_city, location_country, major_field, passion_sector, bio")
+            .eq("id", user.id)
+            .single();
+          if (mounted) setCurrentProfile(profile || null);
+        } else if (mounted) {
+          setCurrentProfile(null);
+        }
         let query = supabase
           .from("profiles")
           .select("id, first_name, last_name, location_city, location_country, major_field, passion_sector, bio, is_mentor")
@@ -325,6 +339,8 @@ export default function MentorshipPage() {
       return true;
     });
   }, [activeCategory, searchQuery]);
+
+  const profileBuilderHref = getProfileBuilderHref(currentUserId, currentProfile);
 
   return (
     <div dir={dir} className={`home-shell min-h-screen ${isLight ? "home-shell-light text-slate-950" : "home-shell-dark text-[#f5f7fb]"}`}>
@@ -405,7 +421,7 @@ export default function MentorshipPage() {
               <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
                 {t("mentorship.tip_body", "Complete your portfolio so mentors can see your skills, projects, and goals before your first session.")}
               </p>
-              <Link href="/profile/mock-id-123"
+              <Link href={profileBuilderHref}
                 className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
                   isLight ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"
                 }`}>

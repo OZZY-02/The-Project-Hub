@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import supabase from '../../../lib/supabaseClient';
+import { signOutUser } from '../../../lib/auth';
 import { useTranslation } from '../../../lib/i18n';
 import { useTheme } from '../../../lib/theme';
-import { Camera, Check, ChevronRight, Lock, MapPin, Sparkles, User } from 'lucide-react';
+import { Camera, Check, ChevronRight, Lock, LogOut, MapPin, Sparkles, User } from 'lucide-react';
 
 export default function ProfileSettingsPage() {
   const { t, locale } = useTranslation();
@@ -27,6 +28,7 @@ export default function ProfileSettingsPage() {
   const [isMentor, setIsMentor] = useState(false);
   const [bio, setBio] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -171,6 +173,11 @@ export default function ProfileSettingsPage() {
     } finally { setLoading(false); }
   };
 
+  const handleSignOut = () => {
+    setSigningOut(true);
+    signOutUser();
+  };
+
   // Shared style tokens matching homepage
   const shellClass = isLight
     ? 'home-shell home-shell-light min-h-screen text-slate-950'
@@ -191,6 +198,9 @@ export default function ProfileSettingsPage() {
   const saveBtnClass = isLight
     ? 'inline-flex min-w-[140px] items-center justify-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:opacity-60'
     : 'inline-flex min-w-[140px] items-center justify-center gap-2 rounded-full bg-[#2258d1] text-white px-6 py-3 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#1a46ab] disabled:translate-y-0 disabled:opacity-60';
+  const signOutBtnClass = isLight
+    ? 'inline-flex items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-700 transition-colors duration-150 hover:bg-red-100 disabled:opacity-60'
+    : 'inline-flex items-center justify-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-5 py-2.5 text-sm font-semibold text-[#f0a37f] transition-colors duration-150 hover:bg-red-500/15 disabled:opacity-60';
 
   if (!user) {
     return (
@@ -382,6 +392,21 @@ export default function ProfileSettingsPage() {
                 <div className="mt-5">
                   <label htmlFor="new-password" className={labelClass}>{t('profile.new_password', 'New password')}</label>
                   <input id="new-password" type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" placeholder={t('profile.password_placeholder', 'Leave blank to keep current password')} className={`mt-2 ${inputClass}`} />
+                </div>
+                <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 border-t pt-6 ${isLight ? 'border-slate-100' : 'border-white/8'}`}>
+                  <div>
+                    <p className={`text-sm font-medium ${titleClass}`}>{t('profile.sign_out_title', 'Sign out')}</p>
+                    <p className={`mt-1 text-xs ${mutedClass}`}>{t('profile.sign_out_hint', 'End your session on this device.')}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={signingOut}
+                    className={signOutBtnClass}
+                  >
+                    <LogOut size={15} aria-hidden="true" />
+                    {signingOut ? t('header.signing_out', 'Signing out…') : t('header.sign_out', 'Sign Out')}
+                  </button>
                 </div>
               </div>
             </div>
