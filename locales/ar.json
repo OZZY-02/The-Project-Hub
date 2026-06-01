@@ -19,6 +19,8 @@
     "sign_in": "تسجيل الدخول",
     "sign_up": "إنشاء حساب",
     "edit_profile": "تعديل الملف",
+    "sign_out": "تسجيل الخروج",
+    "signing_out": "جاري تسجيل الخروج…",
     "start_profile": "ابدأ ملفي الآن",
     "language_label_en": "English",
     "language_label_ar": "العربية"
@@ -191,7 +193,10 @@
     "no_avatar": "لا توجد صورة",
     "upload_button": "تحميل",
     "avatar_saved": "تم حفظ الصورة في الملف.",
-    "save_button": "حفظ الإعدادات"
+    "save_button": "حفظ الإعدادات",
+    "sign_out_title": "تسجيل الخروج",
+    "sign_out_hint": "إنهاء جلستك على هذا الجهاز.",
+    "sign_out_error": "تعذر تسجيل الخروج."
   },
   "auth": {
     "signup": "إنشاء حساب",
@@ -387,9 +392,12 @@
     "saved_kicker": "المحفوظات",
     "saved_title": "تطابقاتك المحفوظة",
     "saved_subtitle": "احتفظ بالصناع والموجهين والمشاريع للعودة لاحقاً.",
+    "view_saved": "عرض التطابقات المحفوظة",
+    "saved_count": "{count} محفوظ",
+    "back_to_matching": "العودة إلى المطابقة",
+    "browse_matches": "تصفح التطابقات",
     "loading_saved": "جاري تحميل المحفوظات...",
-    "saved_empty": "لا توجد تطابقات محفوظة بعد."
-    ,
+    "saved_empty": "لا توجد تطابقات محفوظة بعد.",
     "remove_saved": "إزالة"
   },
   "mentorship": {
