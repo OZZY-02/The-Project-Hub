@@ -6,6 +6,11 @@
 -- The app now uploads to this bucket and stores the public URL in
 -- profiles.avatar_url, falling back to the old column only if the upload fails.
 
+-- The app writes the public URL here. Older schemas already have this column;
+-- creating it defensively keeps a from-scratch setup working.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS avatar_url text;
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO NOTHING;

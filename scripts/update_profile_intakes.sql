@@ -12,6 +12,13 @@ ALTER TABLE public.profile_intakes
 
 -- Collapse any duplicate rows per user (keep the most recently touched one)
 -- so the unique constraint below can be created.
+--
+-- THIS DELETES ROWS. To see what it would remove, run this first:
+--
+--   SELECT user_id, count(*) FROM public.profile_intakes
+--   WHERE user_id IS NOT NULL GROUP BY user_id HAVING count(*) > 1;
+--
+-- If that returns nothing, the delete below is a no-op.
 DELETE FROM public.profile_intakes a
 USING public.profile_intakes b
 WHERE a.user_id IS NOT NULL
