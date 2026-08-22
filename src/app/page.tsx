@@ -200,7 +200,7 @@ export default function HomePage() {
 
               {/* CTA buttons */}
               <div className="mt-10 flex flex-wrap gap-3">
-                <Link href="#platform-features" className={primaryButtonClass}>
+                <Link href={portfolioBuilderHref} className={primaryButtonClass}>
                   {t("home.cta_portfolio", "Build your Portfolio")}
                   <ArrowRight size={16} className="ms-2 rtl:rotate-180" />
                 </Link>
@@ -652,7 +652,7 @@ export default function HomePage() {
               <ul className="mt-4 space-y-3">
                 {[
                   [t("footer.about", "About the Project"), "#"],
-                  [t("footer.pilot", "Pilot Program"), "#"],
+                  [t("footer.early_access", "Early Access"), "#"],
                   [t("footer.blog", "Blog"), "#"],
                   [t("footer.sponsors", "Sponsors & Donors"), "#"],
                   [t("footer.partners", "Partners"), "#"],
