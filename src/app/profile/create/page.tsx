@@ -10,6 +10,7 @@ import {
 import supabase from "@/lib/supabaseClient";
 import { useTheme } from "@/lib/theme";
 import { useTranslation } from "@/lib/i18n";
+import { uploadAvatar, uploadProjectImages } from "@/lib/storage";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,13 @@ const SUGGESTED_SKILLS = [
   "AutoCAD", "Adobe Photoshop", "Data Analysis", "Public Speaking",
 ];
 
-const STEPS = ["Identity", "Focus", "Skills", "Projects", "About You"];
+const STEPS = [
+  { key: "create.step_identity", label: "Identity" },
+  { key: "create.step_focus", label: "Focus" },
+  { key: "create.step_skills", label: "Skills" },
+  { key: "create.step_projects", label: "Projects" },
+  { key: "create.step_about", label: "About You" },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -197,8 +204,8 @@ export default function ProfileCreatePage() {
   // ── Navigation ───────────────────────────────────────────────────────────
   const handleNext = () => {
     setError(null);
-    if (step === 0 && !firstName.trim()) { setError("First name is required."); return; }
-    if (step === 0 && !lastName.trim()) { setError("Last name is required."); return; }
+    if (step === 0 && !firstName.trim()) { setError(t("create.error_first_name", "First name is required.")); return; }
+    if (step === 0 && !lastName.trim()) { setError(t("create.error_last_name", "Last name is required.")); return; }
     setStep(s => Math.min(s + 1, STEPS.length - 1));
   };
   const handleBack = () => { setError(null); setStep(s => Math.max(s - 1, 0)); };
@@ -217,37 +224,55 @@ export default function ProfileCreatePage() {
 
     setSaving(true);
     try {
-      // 1. Upsert base profile
+      // 1. Upsert base profile. Images go to Storage; the base64 columns are
+      //    only written when the bucket is unavailable.
       const profileRow: Record<string, unknown> = {
         id: userId, first_name: firstName, last_name: lastName,
         location_country: locationCountry, location_city: locationCity,
         major_field: majorField, passion_sector: passionSector, is_mentor: isMentor, bio,
       };
-      if (avatarDataUrl) profileRow.avatar_data_url = avatarDataUrl;
+      if (avatarDataUrl) {
+        const { url, storedInBucket } = await uploadAvatar(userId, avatarDataUrl);
+        profileRow.avatar_url = storedInBucket ? url : null;
+        profileRow.avatar_data_url = storedInBucket ? null : url;
+      }
       const { error: profileErr } = await supabase.from("profiles").upsert(profileRow);
       if (profileErr) throw profileErr;
 
-      // 2. Save skills + projects into profile_intakes
+      // 2. Save skills + projects into profile_intakes, which is what
+      //    /profile/[id] reads back to render the public profile.
+      const namedProjects = projects.filter(p => p.title.trim());
+      const intakeProjects = await Promise.all(
+        namedProjects.map(async (p, index) => ({
+          name: p.title,
+          description: p.description,
+          user_role: p.role,
+          is_team_project: p.isTeam,
+          skills: [],
+          toolsUsed: [],
+          images: await uploadProjectImages(userId, `profile-${index}`, p.images),
+        }))
+      );
       const intakeData = {
         skills: skills.map(s => ({ name: s.name, level: s.level })),
-        projects: projects.filter(p => p.title.trim()).map(p => ({
-          name: p.title, description: p.description, user_role: p.role,
-          is_team_project: p.isTeam, skills: [], toolsUsed: [], images: [],
-        })),
+        projects: intakeProjects,
       };
-      await supabase.from("profile_intakes").upsert({ user_id: userId, data: intakeData }, { onConflict: "user_id" });
+      const { error: intakeErr } = await supabase
+        .from("profile_intakes")
+        .upsert({ user_id: userId, data: intakeData }, { onConflict: "user_id" });
+      if (intakeErr) throw intakeErr;
 
       try { window.dispatchEvent(new CustomEvent("app:toast", { detail: { message: "Profile created!" } })); } catch { /* ignore */ }
       router.push(`/profile/${userId}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save. Please try again.");
+      setError(err instanceof Error ? err.message : t("create.error_save", "Failed to save. Please try again."));
     } finally { setSaving(false); }
   };
 
   // ── Preview values ────────────────────────────────────────────────────────
-  const displayName = [firstName, lastName].filter(Boolean).join(" ") || "Your Name";
-  const displayLocation = [locationCity, locationCountry].filter(Boolean).join(", ") || "Your location";
-  const displayFocus = [majorField, passionSector].filter(Boolean).join(" · ") || "Your focus area";
+  const displayName = [firstName, lastName].filter(Boolean).join(" ") || t("create.your_name", "Your Name");
+  const displayLocation = [locationCity, locationCountry].filter(Boolean).join(", ") || t("create.your_location", "Your location");
+  const displayFocus = [majorField, passionSector].filter(Boolean).join(" \u00b7 ") || t("create.your_focus", "Your focus area");
   const initials = [firstName[0], lastName[0]].filter(Boolean).join("").toUpperCase() || "?";
 
   // ── Theme tokens ──────────────────────────────────────────────────────────
@@ -289,13 +314,13 @@ export default function ProfileCreatePage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
           <Link href="/" className={`inline-flex items-center gap-2 text-sm font-medium transition-colors duration-150 ${secondaryColor} hover:${titleColor}`}>
             <ArrowLeft size={16} />
-            Back to home
+            {t("create.back_home", "Back to home")}
           </Link>
 
           {/* Step indicators */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {STEPS.map((label, i) => (
-              <React.Fragment key={label}>
+            {STEPS.map(({ key, label }, i) => (
+              <React.Fragment key={key}>
                 <div className="flex flex-col items-center gap-1">
                   <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all duration-200 ${
                     i < step ? (isLight ? "bg-[#1b1918] text-white" : "bg-white text-[#1b1918]")
@@ -305,7 +330,7 @@ export default function ProfileCreatePage() {
                     {i < step ? <Check size={12} strokeWidth={3} /> : i + 1}
                   </div>
                   <span className={`hidden sm:block text-[9px] font-semibold tracking-wide uppercase ${i === step ? (isLight ? "text-[#1b1918]" : "text-white") : mutedColor}`}>
-                    {label}
+                    {t(key, label)}
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
@@ -327,20 +352,20 @@ export default function ProfileCreatePage() {
           <div>
             {/* Heading */}
             <div className="mb-8">
-              <p className={`text-xs font-semibold tracking-widest uppercase ${accentColor}`}>{STEPS[step]}</p>
+              <p className={`text-xs font-semibold tracking-widest uppercase ${accentColor}`}>{t(STEPS[step].key, STEPS[step].label)}</p>
               <h1 className={`mt-2 text-3xl font-bold leading-tight ${titleColor}`}>
-                {step === 0 && "Who are you?"}
-                {step === 1 && "What drives you?"}
-                {step === 2 && "What are your skills?"}
-                {step === 3 && "Show your work"}
-                {step === 4 && "Tell your story"}
+                {step === 0 && t("create.heading_identity", "Who are you?")}
+                {step === 1 && t("create.heading_focus", "What drives you?")}
+                {step === 2 && t("create.heading_skills", "What are your skills?")}
+                {step === 3 && t("create.heading_projects", "Show your work")}
+                {step === 4 && t("create.heading_about", "Tell your story")}
               </h1>
               <p className={`mt-2 text-sm leading-relaxed ${secondaryColor}`}>
-                {step === 0 && "This is how people find and recognise you on the platform."}
-                {step === 1 && "Help us match you with the right opportunities and collaborators."}
-                {step === 2 && "Add the skills you have — type one and press Enter, or pick from suggestions."}
-                {step === 3 && "Add up to 3 projects to showcase your experience."}
-                {step === 4 && "A photo and bio build trust and make your profile stand out."}
+                {step === 0 && t("create.sub_identity", "This is how people find and recognise you on the platform.")}
+                {step === 1 && t("create.sub_focus", "Help us match you with the right opportunities and collaborators.")}
+                {step === 2 && t("create.sub_skills", "Add the skills you have — type one and press Enter, or pick from suggestions.")}
+                {step === 3 && t("create.sub_projects", "Add up to 3 projects to showcase your experience.")}
+                {step === 4 && t("create.sub_about", "A photo and bio build trust and make your profile stand out.")}
               </p>
             </div>
 
@@ -349,22 +374,22 @@ export default function ProfileCreatePage() {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelClass}>First name *</label>
+                    <label className={labelClass}>{t("create.first_name", "First name")} *</label>
                     <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Ahmed" className={inputClass} autoFocus />
                   </div>
                   <div>
-                    <label className={labelClass}>Last name *</label>
+                    <label className={labelClass}>{t("create.last_name", "Last name")} *</label>
                     <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Omar" className={inputClass} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
-                    <label className={labelClass}>Country</label>
+                    <label className={labelClass}>{t("create.country", "Country")}</label>
                     <input list="country-options" value={locationCountry} onChange={e => { setLocationCountry(e.target.value); setLocationCity(""); }} placeholder="Sudan" className={inputClass} />
                     <datalist id="country-options">{countryOptions.map(c => <option key={c} value={c} />)}</datalist>
                   </div>
                   <div>
-                    <label className={labelClass}>City</label>
+                    <label className={labelClass}>{t("create.city", "City")}</label>
                     <input list="city-options" value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder="Khartoum" className={inputClass} disabled={!locationCountry} />
                     <datalist id="city-options">{cityOptions.map(c => <option key={c} value={c} />)}</datalist>
                   </div>
@@ -376,13 +401,13 @@ export default function ProfileCreatePage() {
             {step === 1 && (
               <div className="space-y-5">
                 <div>
-                  <label className={labelClass}>Major / Field</label>
-                  <input list="major-options" value={majorField} onChange={e => setMajorField(e.target.value)} placeholder="e.g. Software Engineering" className={inputClass} autoFocus />
+                  <label className={labelClass}>{t("create.major_field", "Major / Field")}</label>
+                  <input list="major-options" value={majorField} onChange={e => setMajorField(e.target.value)} placeholder={t("create.major_placeholder", "e.g. Software Engineering")} className={inputClass} autoFocus />
                   <datalist id="major-options">{MAJOR_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
                 </div>
                 <div>
-                  <label className={labelClass}>Passion / Sector</label>
-                  <input list="passion-options" value={passionSector} onChange={e => setPassionSector(e.target.value)} placeholder="e.g. Fintech, Education, Healthcare" className={inputClass} />
+                  <label className={labelClass}>{t("create.passion_sector", "Passion / Sector")}</label>
+                  <input list="passion-options" value={passionSector} onChange={e => setPassionSector(e.target.value)} placeholder={t("create.passion_placeholder", "e.g. Fintech, Education, Healthcare")} className={inputClass} />
                   <datalist id="passion-options">{PASSION_OPTIONS.map(o => <option key={o} value={o} />)}</datalist>
                 </div>
                 {/* Mentor toggle */}
@@ -397,8 +422,8 @@ export default function ProfileCreatePage() {
                       {isMentor && <Check size={11} strokeWidth={3} className="text-white" />}
                     </div>
                     <div>
-                      <p className={`text-sm font-semibold ${titleColor}`}>I&apos;m available as a mentor</p>
-                      <p className={`mt-0.5 text-xs leading-relaxed ${secondaryColor}`}>Help others grow by offering guidance and sharing your experience.</p>
+                      <p className={`text-sm font-semibold ${titleColor}`}>{t("create.mentor_title", "I\u2019m available as a mentor")}</p>
+                      <p className={`mt-0.5 text-xs leading-relaxed ${secondaryColor}`}>{t("create.mentor_body", "Help others grow by offering guidance and sharing your experience.")}</p>
                     </div>
                     <Star size={18} className={`ms-auto shrink-0 mt-0.5 ${isMentor ? accentColor : mutedColor}`} />
                   </div>
@@ -411,14 +436,14 @@ export default function ProfileCreatePage() {
               <div className="space-y-6">
                 {/* Input */}
                 <div>
-                  <label className={labelClass}>Add a skill</label>
+                  <label className={labelClass}>{t("create.add_skill", "Add a skill")}</label>
                   <div className="flex gap-2">
                     <input
                       ref={skillInputRef}
                       value={skillInput}
                       onChange={e => setSkillInput(e.target.value)}
                       onKeyDown={onSkillKeyDown}
-                      placeholder="e.g. Python, Figma, Project Management…"
+                      placeholder={t("create.skill_placeholder", "e.g. Python, Figma, Project Management\u2026")}
                       className={`${inputClass} flex-1`}
                       autoFocus
                     />
@@ -426,12 +451,12 @@ export default function ProfileCreatePage() {
                       <Plus size={16} />
                     </button>
                   </div>
-                  <p className={`mt-1.5 text-xs ${mutedColor}`}>Press Enter or click + to add</p>
+                  <p className={`mt-1.5 text-xs ${mutedColor}`}>{t("create.skill_hint", "Press Enter or click + to add")}</p>
                 </div>
 
                 {/* Suggestions */}
                 <div>
-                  <p className={`mb-2.5 text-xs font-semibold uppercase tracking-wide ${mutedColor}`}>Suggestions</p>
+                  <p className={`mb-2.5 text-xs font-semibold uppercase tracking-wide ${mutedColor}`}>{t("create.suggestions", "Suggestions")}</p>
                   <div className="flex flex-wrap gap-2">
                     {SUGGESTED_SKILLS.filter(s => !skills.some(sk => sk.name.toLowerCase() === s.toLowerCase())).map(s => (
                       <button key={s} type="button" onClick={() => addSkill(s)} className={chipBase}>
@@ -446,7 +471,7 @@ export default function ProfileCreatePage() {
                 {skills.length > 0 && (
                   <div>
                     <p className={`mb-3 text-xs font-semibold uppercase tracking-wide ${mutedColor}`}>
-                      Your skills ({skills.length})
+                      {t("create.your_skills", "Your skills")} ({skills.length})
                     </p>
                     <div className="space-y-2.5">
                       {skills.map(skill => (
@@ -463,7 +488,7 @@ export default function ProfileCreatePage() {
                             ))}
                           </div>
                           <span className={`w-12 text-right text-xs ${mutedColor}`}>
-                            {["", "Beginner", "Basic", "Skilled", "Advanced", "Expert"][skill.level]}
+                            {t(`create.level_${skill.level}`, ["", "Beginner", "Basic", "Skilled", "Advanced", "Expert"][skill.level])}
                           </span>
                           <button type="button" onClick={() => removeSkill(skill.name)} className="rounded-md p-1 transition-colors duration-150 cursor-pointer text-[#847770] hover:bg-red-500 hover:text-white dark:text-[#6f7e9d]" aria-label={`Remove ${skill.name}`}>
                             <X size={14} />
@@ -476,7 +501,7 @@ export default function ProfileCreatePage() {
 
                 {skills.length === 0 && (
                   <div className={`rounded-xl border border-dashed py-8 text-center ${isLight ? "border-[#b7ada8]/35" : "border-white/10"}`}>
-                    <p className={`text-sm ${mutedColor}`}>No skills added yet — type one above or pick from suggestions</p>
+                    <p className={`text-sm ${mutedColor}`}>{t("create.skills_empty", "No skills added yet \u2014 type one above or pick from suggestions")}</p>
                   </div>
                 )}
               </div>
@@ -489,7 +514,7 @@ export default function ProfileCreatePage() {
                   <div key={i} className={`rounded-2xl border p-5 space-y-4 ${isLight ? "border-[#b7ada8]/25 bg-white" : "border-white/10 bg-white/4"}`}>
                     {/* Card header */}
                     <div className="flex items-center justify-between">
-                      <p className={`text-sm font-semibold ${titleColor}`}>Project {i + 1}</p>
+                      <p className={`text-sm font-semibold ${titleColor}`}>{t("create.project", "Project")} {i + 1}</p>
                       {projects.length > 1 && (
                         <button type="button" onClick={() => removeProject(i)} className="rounded-lg p-1.5 transition-colors duration-150 cursor-pointer text-[#847770] hover:bg-red-500 hover:text-white dark:text-[#6f7e9d]" aria-label="Remove project">
                           <Trash2 size={15} />
@@ -499,12 +524,12 @@ export default function ProfileCreatePage() {
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="sm:col-span-2">
-                        <label className={labelClass}>Project title</label>
-                        <input value={project.title} onChange={e => updateProject(i, "title", e.target.value)} placeholder="e.g. Community Dashboard" className={inputClass} autoFocus={i === 0} />
+                        <label className={labelClass}>{t("create.project_title", "Project title")}</label>
+                        <input value={project.title} onChange={e => updateProject(i, "title", e.target.value)} placeholder={t("create.project_title_placeholder", "e.g. Community Dashboard")} className={inputClass} autoFocus={i === 0} />
                       </div>
                       <div>
-                        <label className={labelClass}>Your role</label>
-                        <input value={project.role} onChange={e => updateProject(i, "role", e.target.value)} placeholder="e.g. Lead Developer" className={inputClass} />
+                        <label className={labelClass}>{t("create.project_role", "Your role")}</label>
+                        <input value={project.role} onChange={e => updateProject(i, "role", e.target.value)} placeholder={t("create.project_role_placeholder", "e.g. Lead Developer")} className={inputClass} />
                       </div>
                       <div className="flex items-end">
                         <button type="button" onClick={() => updateProject(i, "isTeam", !project.isTeam)}
@@ -518,19 +543,19 @@ export default function ProfileCreatePage() {
                             }`}>
                               {project.isTeam && <Check size={9} strokeWidth={3} className="text-white" />}
                             </div>
-                            <span className={`text-xs font-medium ${titleColor}`}>Team project</span>
+                            <span className={`text-xs font-medium ${titleColor}`}>{t("create.team_project", "Team project")}</span>
                           </div>
                         </button>
                       </div>
                       <div className="sm:col-span-2">
-                        <label className={labelClass}>Description</label>
-                        <textarea value={project.description} onChange={e => updateProject(i, "description", e.target.value)} placeholder="What did you build? What was your contribution?" rows={3} className={`${inputClass} resize-none`} />
+                        <label className={labelClass}>{t("create.project_description", "Description")}</label>
+                        <textarea value={project.description} onChange={e => updateProject(i, "description", e.target.value)} placeholder={t("create.project_description_placeholder", "What did you build? What was your contribution?")} rows={3} className={`${inputClass} resize-none`} />
                       </div>
 
                       {/* Image upload */}
                       <div className="sm:col-span-2">
                         <div className="flex items-center justify-between mb-2">
-                          <label className={labelClass}>Project images</label>
+                          <label className={labelClass}>{t("create.project_images", "Project images")}</label>
                           <span className={`text-xs ${mutedColor}`}>{project.images.length}/3</span>
                         </div>
 
@@ -563,7 +588,7 @@ export default function ProfileCreatePage() {
                               aria-label="Upload image"
                             >
                               <Camera size={18} />
-                              <span className="text-[10px] font-medium">Add photo</span>
+                              <span className="text-[10px] font-medium">{t("create.add_photo", "Add photo")}</span>
                             </button>
                           )}
                         </div>
@@ -576,7 +601,7 @@ export default function ProfileCreatePage() {
                           className="hidden"
                           onChange={e => handleProjectImages(i, e)}
                         />
-                        <p className={`mt-2 text-xs ${mutedColor}`}>JPG or PNG · up to 3 images per project</p>
+                        <p className={`mt-2 text-xs ${mutedColor}`}>{t("create.project_images_hint", "JPG or PNG \u00b7 up to 3 images per project")}</p>
                       </div>
                     </div>
                   </div>
@@ -585,7 +610,7 @@ export default function ProfileCreatePage() {
                 {projects.length < 3 && (
                   <button type="button" onClick={addProject} className={`w-full cursor-pointer rounded-2xl border border-dashed py-4 text-sm font-medium transition-all duration-150 ${isLight ? "border-[#b7ada8]/40 text-[#847770] hover:border-[#5b7fdb]/40 hover:text-[#5b7fdb] hover:bg-[#5b7fdb]/4" : "border-white/10 text-[#6f7e9d] hover:border-[#8fb7ff]/25 hover:text-[#8fb7ff] hover:bg-[#8fb7ff]/6"}`}>
                     <Plus size={15} className="inline me-1.5" />
-                    Add another project
+                    {t("create.add_project", "Add another project")}
                   </button>
                 )}
               </div>
@@ -596,7 +621,7 @@ export default function ProfileCreatePage() {
               <div className="space-y-6">
                 {/* Avatar */}
                 <div>
-                  <label className={labelClass}>Profile photo</label>
+                  <label className={labelClass}>{t("create.profile_photo", "Profile photo")}</label>
                   <div className="flex items-center gap-5">
                     <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 ${isLight ? "border-[#b7ada8]/40 bg-[#f2ede8]" : "border-white/15 bg-white/8"}`}>
                       {avatarDataUrl ? (
@@ -610,9 +635,9 @@ export default function ProfileCreatePage() {
                     </div>
                     <div>
                       <button type="button" onClick={() => avatarInputRef.current?.click()} className={ghostBtn}>
-                        <Camera size={15} />Upload photo
+                        <Camera size={15} />{t("create.upload_photo", "Upload photo")}
                       </button>
-                      <p className={`mt-1.5 text-xs ${mutedColor}`}>JPG or PNG, max 4 MB</p>
+                      <p className={`mt-1.5 text-xs ${mutedColor}`}>{t("create.photo_hint", "JPG or PNG, max 4 MB")}</p>
                     </div>
                     <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
                   </div>
@@ -621,10 +646,10 @@ export default function ProfileCreatePage() {
                 {/* Bio */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className={labelClass}>Short bio</label>
+                    <label className={labelClass}>{t("create.short_bio", "Short bio")}</label>
                     <span className={`text-xs ${bio.length > 450 ? "text-[#e86c00]" : mutedColor}`}>{bio.length}/500</span>
                   </div>
-                  <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} rows={5} placeholder="Tell the community who you are, what you're building, or what you're passionate about..." className={`${inputClass} resize-none`} autoFocus />
+                  <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} rows={5} placeholder={t("create.bio_placeholder", "Tell the community who you are, what you\u2019re building, or what you\u2019re passionate about\u2026")} className={`${inputClass} resize-none`} autoFocus />
                 </div>
               </div>
             )}
@@ -639,23 +664,23 @@ export default function ProfileCreatePage() {
             {/* Navigation */}
             <div className="mt-8 flex items-center justify-between">
               <button type="button" onClick={handleBack} className={`${ghostBtn} ${step === 0 ? "invisible" : ""}`}>
-                <ArrowLeft size={15} />Back
+                <ArrowLeft size={15} />{t("create.back", "Back")}
               </button>
               <div className="flex items-center gap-3">
                 {step < STEPS.length - 1 ? (
                   <>
                     {canSkip && (
                       <button type="button" onClick={() => { setError(null); setStep(s => s + 1); }} className={`text-sm transition-colors duration-150 cursor-pointer ${mutedColor} hover:${secondaryColor}`}>
-                        Skip for now
+                        {t("create.skip", "Skip for now")}
                       </button>
                     )}
                     <button type="button" onClick={handleNext} className={primaryBtn}>
-                      Continue <ArrowRight size={15} />
+                      {t("create.continue", "Continue")} <ArrowRight size={15} />
                     </button>
                   </>
                 ) : (
                   <button type="button" onClick={handleSubmit} disabled={saving} className={primaryBtn}>
-                    {saving ? <><Loader2 size={15} className="animate-spin" />Saving…</> : <><Check size={15} />Complete profile</>}
+                    {saving ? <><Loader2 size={15} className="animate-spin" />{t("create.saving", "Saving\u2026")}</> : <><Check size={15} />{t("create.complete", "Complete profile")}</>}
                   </button>
                 )}
               </div>
@@ -665,7 +690,7 @@ export default function ProfileCreatePage() {
           {/* ── Right: Live Preview ──────────────────────────────────────── */}
           <div className="hidden lg:block">
             <div className="sticky top-28">
-              <p className={`mb-3 text-xs font-semibold tracking-widest uppercase ${mutedColor}`}>Preview</p>
+              <p className={`mb-3 text-xs font-semibold tracking-widest uppercase ${mutedColor}`}>{t("create.preview", "Preview")}</p>
               <div className={`rounded-2xl border p-5 ${cardBg}`}>
                 <div className="flex flex-col items-center text-center">
                   <div className={`flex h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-full border-2 ${isLight ? "border-[#b7ada8]/30 bg-[#f2ede8]" : "border-white/10 bg-white/8"}`}>
@@ -687,7 +712,7 @@ export default function ProfileCreatePage() {
                 {skills.length > 0 && (
                   <>
                     <div className={`my-4 border-t ${isLight ? "border-[#b7ada8]/15" : "border-white/8"}`} />
-                    <p className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${accentColor}`}>Skills</p>
+                    <p className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${accentColor}`}>{t("create.preview_skills", "Skills")}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {skills.map(s => (
                         <span key={s.name} className={`rounded-full px-2 py-0.5 text-xs font-medium ${isLight ? "border border-[#b7ada8]/25 bg-[#f8f5f1] text-[#6c615c]" : "border border-white/10 bg-white/5 text-[#9eabc4]"}`}>{s.name}</span>
@@ -699,7 +724,7 @@ export default function ProfileCreatePage() {
                 {projects.filter(p => p.title).length > 0 && (
                   <>
                     <div className={`my-4 border-t ${isLight ? "border-[#b7ada8]/15" : "border-white/8"}`} />
-                    <p className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${accentColor}`}>Projects</p>
+                    <p className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${accentColor}`}>{t("create.preview_projects", "Projects")}</p>
                     <div className="space-y-2">
                       {projects.filter(p => p.title).map((p, i) => (
                         <div key={i} className={`overflow-hidden rounded-lg ${isLight ? "bg-[#f8f5f1]" : "bg-white/5"}`}>
@@ -721,7 +746,7 @@ export default function ProfileCreatePage() {
                 )}
 
                 {!bio && skills.length === 0 && projects.filter(p => p.title).length === 0 && !majorField && !passionSector && (
-                  <p className={`mt-4 text-center text-xs italic ${mutedColor}`}>Fill in your details to see a preview</p>
+                  <p className={`mt-4 text-center text-xs italic ${mutedColor}`}>{t("create.preview_empty", "Fill in your details to see a preview")}</p>
                 )}
               </div>
 
@@ -731,18 +756,18 @@ export default function ProfileCreatePage() {
                   <User size={15} className={`mt-0.5 shrink-0 ${accentColor}`} />
                   <div>
                     <p className={`text-xs font-semibold ${titleColor}`}>
-                      {step === 0 && "Identity sets your presence"}
-                      {step === 1 && "Focus drives your matches"}
-                      {step === 2 && "Skills get you discovered"}
-                      {step === 3 && "Projects prove your work"}
-                      {step === 4 && "A photo gets 3× more views"}
+                      {step === 0 && t("create.hint_identity_title", "Identity sets your presence")}
+                      {step === 1 && t("create.hint_focus_title", "Focus drives your matches")}
+                      {step === 2 && t("create.hint_skills_title", "Skills get you discovered")}
+                      {step === 3 && t("create.hint_projects_title", "Projects prove your work")}
+                      {step === 4 && t("create.hint_about_title", "A photo gets 3\u00d7 more views")}
                     </p>
                     <p className={`mt-0.5 text-xs leading-relaxed ${mutedColor}`}>
-                      {step === 0 && "Add your name and location so collaborators can find you."}
-                      {step === 1 && "We use your field and passion to surface relevant projects."}
-                      {step === 2 && "Profiles with 5+ skills get significantly more matches."}
-                      {step === 3 && "Real projects are the strongest signal of your capabilities."}
-                      {step === 4 && "Profiles with a photo and bio build trust faster."}
+                      {step === 0 && t("create.hint_identity_body", "Add your name and location so collaborators can find you.")}
+                      {step === 1 && t("create.hint_focus_body", "We use your field and passion to surface relevant projects.")}
+                      {step === 2 && t("create.hint_skills_body", "Profiles with 5+ skills get significantly more matches.")}
+                      {step === 3 && t("create.hint_projects_body", "Real projects are the strongest signal of your capabilities.")}
+                      {step === 4 && t("create.hint_about_body", "Profiles with a photo and bio build trust faster.")}
                     </p>
                   </div>
                 </div>

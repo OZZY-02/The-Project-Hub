@@ -4,7 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import supabase from '../lib/supabaseClient';
 
-const protectedPrefixes = ['/matching', '/mentorship', '/profile/settings'];
+// `/mentorship` is intentionally absent: the homepage markets it to logged-out
+// visitors, so browsing mentors must not require an account.
+const protectedPrefixes = ['/matching', '/profile/settings'];
 
 function isPublicPath(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -16,7 +18,15 @@ function isPublicPath(pathname: string | null): boolean {
   return !protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-const FOUNDER_MODE = process.env.NEXT_PUBLIC_FOUNDER_MODE === 'true';
+/**
+ * TEMPORARY — remove before launch (along with NEXT_PUBLIC_FOUNDER_MODE in
+ * .env.local and .env.local.example). Lets a demo run without signing in.
+ *
+ * The NODE_ENV check is deliberate: even if the flag is set on a deployment by
+ * mistake, a production build can never disable the guard.
+ */
+const FOUNDER_MODE =
+  process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_FOUNDER_MODE === 'true';
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,6 +42,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (mounted) setChecking(false);
         return;
       }
+
+      // Re-arm on client navigation into a protected route, otherwise the page
+      // renders for a beat before the session check has run.
+      if (mounted) setChecking(true);
 
       try {
         const { data } = await supabase.auth.getUser();
