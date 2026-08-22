@@ -93,6 +93,12 @@ Auth is enforced in the browser via the Supabase client, not through a full serv
 
 Every user-facing string goes through `t("key", "English fallback")` from `src/lib/i18n.tsx`, with translations in `locales/en.json` and `locales/ar.json`. Both files carry the same key set — if you add a string, add both. The fallback is what renders before translations load, so keep it accurate.
 
+To list the keys referenced in code when checking coverage:
+
+```bash
+grep -rhoE 't\(\s*"[a-zA-Z_.]+"' src --include=*.tsx | sort -u
+```
+
 ## API Notes
 
 - `/api/portfolio/render` uses Puppeteer and escapes injected HTML content before rendering.
@@ -101,3 +107,5 @@ Every user-facing string goes through `t("key", "English fallback")` from `src/l
 - `/api/locations` reads from `src/data/countries.json`.
 
 The PDF/image routes depend on `puppeteer`, `canvas`, and `pdfjs-dist`, which are the most environment-sensitive parts of the stack.
+
+Note that `/api/portfolio/render` launches full `puppeteer` (bundled Chromium) while `@sparticuz/chromium-min` and `puppeteer-core` are installed but unused — that route is likely to fail on serverless hosts until it is switched over.
