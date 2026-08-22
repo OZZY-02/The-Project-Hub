@@ -7,6 +7,9 @@ import Link from 'next/link';
 import { useTranslation } from '../../../lib/i18n';
 import { useTheme } from '../../../lib/theme';
 import { ArrowRight, BadgeCheck, Globe, Users, Zap } from 'lucide-react';
+import EmailInput from '../../../components/auth/EmailInput';
+import UsernameInput from '../../../components/auth/UsernameInput';
+import { isValidUsername, isUsernameAvailable, normalizeUsername } from '../../../lib/username';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -16,6 +19,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState('');
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
@@ -29,23 +33,28 @@ export default function SignupPage() {
     setMessage(null);
     setIsError(false);
 
-    const uname = username?.trim();
-    if (!uname || uname.length < 3 || uname.length > 30) {
-      setMessage(t('auth.username_length_error', 'Username must be 3–30 characters long.'));
+    const uname = normalizeUsername(username);
+    if (!isValidUsername(uname)) {
+      setMessage(
+        !uname || uname.length < 3 || uname.length > 30
+          ? t('auth.username_length_error', 'Username must be 3–30 characters long.')
+          : t('auth.username_charset_error', 'Username may only contain letters, numbers, dot, underscore and hyphen.')
+      );
       setIsError(true);
       setLoading(false);
       return;
     }
-    if (!/^[a-zA-Z0-9._-]+$/.test(uname)) {
-      setMessage(t('auth.username_charset_error', 'Username may only contain letters, numbers, dot, underscore and hyphen.'));
+
+    if (usernameAvailable === false) {
+      setMessage(t('auth.username_taken_error', 'Username already taken. Please choose another.'));
       setIsError(true);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: existing } = await supabase.from('profiles').select('id').ilike('username', uname);
-      if (existing && existing.length > 0) {
+      const available = await isUsernameAvailable(uname);
+      if (!available) {
         setMessage(t('auth.username_taken_error', 'Username already taken. Please choose another.'));
         setIsError(true);
         setLoading(false);
@@ -162,33 +171,26 @@ export default function SignupPage() {
                 <label htmlFor="signup-username" className={`block text-sm font-medium ${isLight ? 'text-slate-700' : 'text-[#c8d4e8]'}`}>
                   {t('auth.username_label', 'Username')}
                 </label>
-                <input
+                <UsernameInput
                   id="signup-username"
-                  required
-                  type="text"
-                  autoComplete="username"
-                  placeholder="e.g. ahmed_maker"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={setUsername}
+                  onAvailabilityChange={setUsernameAvailable}
                   className={`mt-2 ${inputClass}`}
+                  hintClassName={`mt-1.5 text-xs ${isLight ? 'text-slate-400' : 'text-[#6f7e9d]'}`}
                 />
-                <p className={`mt-1.5 text-xs ${isLight ? 'text-slate-400' : 'text-[#6f7e9d]'}`}>
-                  {t('auth.username_hint', '3–30 chars: letters, numbers, dots, underscores, hyphens.')}
-                </p>
               </div>
 
               <div>
                 <label htmlFor="signup-email" className={`block text-sm font-medium ${isLight ? 'text-slate-700' : 'text-[#c8d4e8]'}`}>
                   {t('auth.email_label', 'Email address')}
                 </label>
-                <input
+                <EmailInput
                   id="signup-email"
                   required
-                  type="email"
-                  autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={setEmail}
                   className={`mt-2 ${inputClass}`}
                 />
               </div>
@@ -226,7 +228,7 @@ export default function SignupPage() {
               )}
 
               <div className="pt-1">
-                <button type="submit" disabled={loading} className={primaryBtnClass}>
+                <button type="submit" disabled={loading || usernameAvailable === false} className={primaryBtnClass}>
                   {loading ? t('auth.signing_up', 'Creating account…') : (
                     <>
                       {t('auth.signup_button', 'Join the Hub')}

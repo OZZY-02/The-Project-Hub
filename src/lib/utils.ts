@@ -16,17 +16,19 @@ type ProfileBuilderFields = {
   bio?: string | null;
 };
 
+function filled(value: string | null | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+/** Core onboarding fields from profile/create (identity + focus steps). */
 export function isProfileComplete(profile: ProfileBuilderFields | null | undefined): boolean {
-  return Boolean(
-    profile &&
-      (profile.username ||
-        profile.first_name ||
-        profile.avatar_data_url ||
-        profile.location_country ||
-        profile.location_city ||
-        profile.major_field ||
-        profile.passion_sector ||
-        profile.bio)
+  if (!profile) return false;
+  return (
+    filled(profile.first_name) &&
+    filled(profile.location_country) &&
+    filled(profile.location_city) &&
+    filled(profile.major_field) &&
+    filled(profile.passion_sector)
   );
 }
 

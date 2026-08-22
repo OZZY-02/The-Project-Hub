@@ -67,7 +67,6 @@ export default function ProfileCreatePage() {
   // Step 0 — Identity
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [username, setUsername] = useState("");
   const [locationCountry, setLocationCountry] = useState("");
   const [locationCity, setLocationCity] = useState("");
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
@@ -101,13 +100,12 @@ export default function ProfileCreatePage() {
         if (mounted) setUserId(user.id);
         const { data: profile } = await supabase
           .from("profiles")
-          .select("first_name,last_name,username,location_country,location_city,major_field,passion_sector,is_mentor,bio,avatar_data_url")
+          .select("first_name,last_name,location_country,location_city,major_field,passion_sector,is_mentor,bio,avatar_data_url")
           .eq("id", user.id).single();
         if (!mounted) return;
         if (profile) {
           setFirstName(profile.first_name || "");
           setLastName(profile.last_name || "");
-          setUsername(profile.username || "");
           setLocationCountry(profile.location_country || "");
           setLocationCity(profile.location_city || "");
           setMajorField(profile.major_field || "");
@@ -199,7 +197,6 @@ export default function ProfileCreatePage() {
   // ── Navigation ───────────────────────────────────────────────────────────
   const handleNext = () => {
     setError(null);
-    if (step === 0 && !username.trim()) { setError("Username is required."); return; }
     if (step === 0 && !firstName.trim()) { setError("First name is required."); return; }
     if (step === 0 && !lastName.trim()) { setError("Last name is required."); return; }
     setStep(s => Math.min(s + 1, STEPS.length - 1));
@@ -210,7 +207,7 @@ export default function ProfileCreatePage() {
   // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     setError(null);
-    const previewData = { firstName, lastName, username, locationCity, locationCountry, majorField, passionSector, isMentor, bio, avatarDataUrl, skills, projects };
+    const previewData = { firstName, lastName, locationCity, locationCountry, majorField, passionSector, isMentor, bio, avatarDataUrl, skills, projects };
 
     if (!userId) {
       try { sessionStorage.setItem("profile_preview", JSON.stringify(previewData)); } catch { /* ignore */ }
@@ -226,7 +223,6 @@ export default function ProfileCreatePage() {
         location_country: locationCountry, location_city: locationCity,
         major_field: majorField, passion_sector: passionSector, is_mentor: isMentor, bio,
       };
-      if (username) profileRow.username = username;
       if (avatarDataUrl) profileRow.avatar_data_url = avatarDataUrl;
       const { error: profileErr } = await supabase.from("profiles").upsert(profileRow);
       if (profileErr) throw profileErr;
@@ -250,8 +246,8 @@ export default function ProfileCreatePage() {
 
   // ── Preview values ────────────────────────────────────────────────────────
   const displayName = [firstName, lastName].filter(Boolean).join(" ") || "Your Name";
-  const displayHandle = username ? `@${username}` : "@username";
   const displayLocation = [locationCity, locationCountry].filter(Boolean).join(", ") || "Your location";
+  const displayFocus = [majorField, passionSector].filter(Boolean).join(" · ") || "Your focus area";
   const initials = [firstName[0], lastName[0]].filter(Boolean).join("").toUpperCase() || "?";
 
   // ── Theme tokens ──────────────────────────────────────────────────────────
@@ -360,14 +356,6 @@ export default function ProfileCreatePage() {
                     <label className={labelClass}>Last name *</label>
                     <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Omar" className={inputClass} />
                   </div>
-                </div>
-                <div>
-                  <label className={labelClass}>Username *</label>
-                  <div className="relative">
-                    <span className={`pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-sm ${mutedColor}`}>@</span>
-                    <input value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} placeholder="yourhandle" className={`${inputClass} pl-7`} />
-                  </div>
-                  <p className={`mt-1.5 text-xs ${mutedColor}`}>Letters, numbers, and underscores only.</p>
                 </div>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
@@ -684,7 +672,7 @@ export default function ProfileCreatePage() {
                     {avatarDataUrl ? <img src={avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" /> : <span className={`text-xl font-bold ${isLight ? "text-[#847770]" : "text-[#6f7e9d]"}`}>{initials}</span>}
                   </div>
                   <h2 className={`mt-3 text-base font-bold ${titleColor}`}>{displayName}</h2>
-                  <p className={`text-xs ${secondaryColor}`}>{displayHandle}</p>
+                  <p className={`text-xs ${secondaryColor}`}>{displayFocus}</p>
                   {(locationCity || locationCountry) && (
                     <p className={`mt-1 flex items-center gap-1 text-xs ${mutedColor}`}><MapPin size={10} />{displayLocation}</p>
                   )}
@@ -750,7 +738,7 @@ export default function ProfileCreatePage() {
                       {step === 4 && "A photo gets 3× more views"}
                     </p>
                     <p className={`mt-0.5 text-xs leading-relaxed ${mutedColor}`}>
-                      {step === 0 && "A clear username helps collaborators find you easily."}
+                      {step === 0 && "Add your name and location so collaborators can find you."}
                       {step === 1 && "We use your field and passion to surface relevant projects."}
                       {step === 2 && "Profiles with 5+ skills get significantly more matches."}
                       {step === 3 && "Real projects are the strongest signal of your capabilities."}

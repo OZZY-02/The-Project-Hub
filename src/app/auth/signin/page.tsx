@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useTranslation } from '../../../lib/i18n';
 import { useTheme } from '../../../lib/theme';
 import { ArrowRight, BadgeCheck, Lock, Sparkles } from 'lucide-react';
+import EmailInput from '../../../components/auth/EmailInput';
 
 export default function SigninPage() {
   const router = useRouter();
@@ -113,14 +114,12 @@ export default function SigninPage() {
                 <label htmlFor="signin-email" className={`block text-sm font-medium ${isLight ? 'text-slate-700' : 'text-[#c8d4e8]'}`}>
                   {t('auth.email_label', 'Email address')}
                 </label>
-                <input
+                <EmailInput
                   id="signin-email"
                   required
-                  type="email"
-                  autoComplete="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={setEmail}
                   className={`mt-2 ${inputClass}`}
                 />
               </div>

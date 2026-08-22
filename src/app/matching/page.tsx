@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import supabase from "../../lib/supabaseClient";
 import { getProfileBuilderHref } from "../../lib/utils";
+import { ensureDemoProjectsSeeded } from "../../lib/demo-projects";
 
 type ProfileRow = {
   id: string;
@@ -268,6 +269,7 @@ export default function MatchingPage() {
     let mounted = true;
     const load = async () => {
       setLoading(true);
+      ensureDemoProjectsSeeded();
       setSavedIds(loadSavedLocal());
       setProjectMatches(loadProjectsLocal());
       try { const f = localStorage.getItem(filtersStorageKey); if (f && mounted) { const p = JSON.parse(f); setFilterPlaces(p.filterPlaces || []); setFilterSkillTags(p.filterSkillTags || []); setFilterFocusTags(p.filterFocusTags || []); setSelectedTypes(new Set(p.selectedTypes || ["project", "maker"])); } } catch {}
@@ -275,7 +277,11 @@ export default function MatchingPage() {
         const { data: ud } = await supabase.auth.getUser();
         const user = ud?.user;
         if (mounted) setCurrentUserId(user?.id || null);
-        if (!user) { setLoading(false); return; }
+        if (!user) {
+          if (mounted) setProjectMatches(loadProjectsLocal());
+          setLoading(false);
+          return;
+        }
         const { data: profile } = await supabase.from("profiles").select("id, first_name, last_name, location_city, location_country, major_field, passion_sector, is_mentor, bio").eq("id", user.id).single();
         if (mounted) setCurrentProfile(profile || null);
         try {

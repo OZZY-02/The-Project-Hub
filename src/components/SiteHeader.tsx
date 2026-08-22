@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import supabase from "../lib/supabaseClient";
 import { signOutUser } from "../lib/auth";
@@ -18,6 +18,8 @@ export default function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const isAuthPage = pathname?.startsWith("/auth/");
   const isLight = theme === "light";
 
   const refreshProfile = async () => {
@@ -58,21 +60,47 @@ export default function SiteHeader() {
     };
   }, []);
 
-  const navLinkClass = `transition-colors duration-200 ${isLight ? "hover:text-[#1b1918]" : "hover:text-white"}`;
-  const controlBtnClass = `flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${isLight ? "border border-[#b7ada8]/35 bg-white text-[#6c615c] hover:bg-[#f2ede8]" : "border border-white/10 bg-white/5 text-[#d8e4ff] hover:border-[#234a7e] hover:bg-[#0a1528]"}`;
-  const iconBtnClass = `flex h-9 w-9 items-center justify-center rounded-lg transition-colors duration-200 ${isLight ? "border border-[#b7ada8]/35 bg-white text-[#6c615c] hover:bg-[#f2ede8] hover:text-[#1b1918]" : "border border-white/10 bg-white/5 text-[#8d9ab5] hover:border-white/20 hover:text-[#d8e4ff]"}`;
+  const navLinkClass = `text-sm font-medium transition-colors duration-200 ${isLight ? "text-slate-600 hover:text-slate-900" : "text-[#8d9ab5] hover:text-white"}`;
+  const controlBtnClass = `flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${isLight ? "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50" : "border border-white/10 bg-white/5 text-[#d8e4ff] hover:border-white/20 hover:bg-[#0a1528]"}`;
+  const iconBtnClass = `flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-200 ${isLight ? "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50" : "border border-white/10 bg-white/5 text-[#8d9ab5] hover:border-white/20 hover:text-[#d8e4ff]"}`;
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    if (signingOut) return;
     setSigningOut(true);
-    setUser(null);
-    setAvatarUrl(null);
     setMobileOpen(false);
-    signOutUser();
+    try {
+      await signOutUser();
+    } catch {
+      setSigningOut(false);
+    }
   };
 
+  if (isAuthPage) {
+    return (
+      <header className={`sticky top-0 z-40 backdrop-blur-xl ${isLight ? "home-site-header-light border-b" : "home-site-header-dark border-b"}`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-5 sm:px-8">
+          <Link
+            href="/"
+            className="group flex items-center gap-3"
+            aria-label={t("site.title", "The Project Hub") + " — go home"}
+          >
+            <span className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${isLight ? "border border-slate-900/8 bg-white text-slate-950" : "border border-white/10 bg-white/5 text-white shadow-[0_10px_30px_-18px_rgba(0,0,0,0.9)]"}`}>
+              <span className="h-2 w-2 rounded-full bg-[#8fb7ff]" />
+              <span className="mx-1 h-2 w-2 rounded-full bg-[#dfe8ff]" />
+              <span className="h-2 w-2 rounded-full bg-[#18c29c]" />
+            </span>
+            <span className={`font-display text-lg transition-colors duration-200 ${isLight ? "text-slate-950 group-hover:text-slate-700" : "text-white group-hover:text-[#dfe8ff]"}`}>
+              {t("site.title", "The Project Hub")}
+            </span>
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <header className={`sticky top-0 z-40 backdrop-blur-xl ${isLight ? "border-b border-[#b7ada8]/25 bg-[#f8f5f1]/90" : "border-b border-white/8 bg-[#050816]/80"}`}>
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
+    <header className={`sticky top-0 z-40 backdrop-blur-xl ${isLight ? "home-site-header-light border-b" : "home-site-header-dark border-b"}`}>
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5 sm:px-8">
         {/* Logo */}
         <button
           onClick={async () => { await refreshProfile(); router.push('/'); }}
@@ -90,7 +118,7 @@ export default function SiteHeader() {
         </button>
 
         {/* Desktop Nav */}
-        <nav className={`hidden items-center gap-6 text-sm lg:flex ${isLight ? "text-slate-500" : "text-[#8d9ab5]"}`} aria-label="Main navigation">
+        <nav className={`hidden items-center gap-8 lg:flex`} aria-label="Main navigation">
           <Link href="/#portfolio" className={navLinkClass}>{t("home.nav_portfolio", "Portfolio")}</Link>
           <Link href="/mentorship" className={navLinkClass}>{t("home.nav_mentorship", "Mentorship")}</Link>
           <Link href="/matching" className={navLinkClass}>{t("home.nav_projects", "Find a Project")}</Link>
@@ -137,10 +165,10 @@ export default function SiteHeader() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link href="/auth/signin" className={`rounded-lg px-4 py-1.5 text-sm transition-colors duration-200 ${isLight ? "border border-[#b7ada8]/35 text-[#6c615c] hover:bg-[#f2ede8]" : "border border-white/10 text-[#9eabc4] hover:border-white/20 hover:bg-white/5"}`}>
+              <Link href="/auth/signin" className={`rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 ${isLight ? "text-slate-600 hover:text-slate-900" : "text-[#9eabc4] hover:text-white"}`}>
                 {t('header.sign_in', 'Sign In')}
               </Link>
-              <Link href="/auth/signup" className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors duration-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] ${isLight ? "bg-[#1b1918] text-white hover:bg-[#2c2a29]" : "bg-white text-[#1b1918] hover:bg-slate-100"}`}>
+              <Link href="/auth/signup" className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ${isLight ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-white text-slate-900 hover:bg-slate-100"}`}>
                 {t('header.join', 'Join')}
               </Link>
             </div>

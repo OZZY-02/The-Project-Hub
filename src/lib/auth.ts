@@ -1,4 +1,7 @@
+import supabase from "./supabaseClient";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SIGN_OUT_TIMEOUT_MS = 5000;
 
 function getSupabaseProjectRef(): string | null {
   if (!SUPABASE_URL) return null;
@@ -26,11 +29,20 @@ export function clearSupabaseAuthStorage(): void {
 }
 
 /**
- * Supabase signOut() can hang here because it still calls the remote /logout
- * endpoint before clearing local storage. Clear storage directly and reload.
+ * Prefer server-side global sign-out so refresh tokens are revoked.
+ * If the remote /logout call hangs, fall back to clearing local storage.
  */
-export function signOutUser(): void {
-  clearSupabaseAuthStorage();
+export async function signOutUser(): Promise<void> {
+  try {
+    await Promise.race([
+      supabase.auth.signOut({ scope: "global" }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("signOut timeout")), SIGN_OUT_TIMEOUT_MS)
+      ),
+    ]);
+  } catch {
+    clearSupabaseAuthStorage();
+  }
 
   if (typeof window !== "undefined") {
     window.location.assign("/");

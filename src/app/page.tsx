@@ -11,9 +11,11 @@ import {
   Layers,
   Lightbulb,
   Lock,
+  MapPin,
   Network,
   Play,
   Sparkles,
+  Star,
   Zap,
 } from "lucide-react";
 
@@ -23,7 +25,9 @@ import { InfiniteGrid } from "../components/ui/the-infinite-grid";
 import supabase from "../lib/supabaseClient";
 import { useTranslation } from "../lib/i18n";
 import { useTheme } from "../lib/theme";
-import { getProfileBuilderHref } from "../lib/utils";
+import { getProfileBuilderHref, isProfileComplete } from "../lib/utils";
+import { fetchSampleProjects, type SampleProject } from "../lib/sample-projects";
+import { CATEGORY_LABELS, pickHomeMentorshipCards } from "../lib/mentorship-data";
 
 function TypingFeatureTitle({
   locale,
@@ -89,6 +93,10 @@ export default function HomePage() {
   const { theme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [profileComplete, setProfileComplete] = useState(false);
+  const [sampleProjects, setSampleProjects] = useState<SampleProject[]>([]);
+  const [mentorshipCards, setMentorshipCards] = useState<
+    ReturnType<typeof pickHomeMentorshipCards>
+  >([]);
 
   const isArabic = locale === "ar";
   const isLight = theme === "light";
@@ -106,8 +114,7 @@ export default function HomePage() {
         .select("avatar_data_url,avatar_url,first_name,last_name,username,location_country,location_city,major_field,passion_sector,bio")
         .eq("id", currentUser.id)
         .single();
-      const filled = Boolean(profile && (profile.username || profile.first_name || profile.avatar_data_url || profile.location_country || profile.location_city || profile.major_field || profile.passion_sector || profile.bio));
-      setProfileComplete(filled);
+      setProfileComplete(isProfileComplete(profile));
     } catch (error) {
       console.warn("Failed to fetch profile", error);
       setProfileComplete(false);
@@ -120,43 +127,47 @@ export default function HomePage() {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    setMentorshipCards(pickHomeMentorshipCards());
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const projects = await fetchSampleProjects(2);
+      if (mounted) setSampleProjects(projects);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const shellClass = isLight
-    ? "home-shell home-shell-light min-h-screen text-slate-950"
-    : "home-shell home-shell-dark min-h-screen text-[#f5f7fb]";
-  const titleClass = isLight ? "text-slate-950" : "text-white";
+    ? "home-shell home-shell-light home-shell-clean min-h-screen text-slate-900"
+    : "home-shell home-shell-dark home-shell-clean min-h-screen text-[#f5f7fb]";
+  const titleClass = isLight ? "text-slate-900" : "text-white";
   const secondaryTextClass = isLight ? "text-slate-600" : "text-[#9eabc4]";
   const mutedTextClass = isLight ? "text-slate-500" : "text-[#6f7e9d]";
 
-  const sectionClass = isLight
-    ? "border border-[#b7ada8]/25 bg-white/60 rounded-2xl p-6 sm:p-10 my-5"
-    : "border border-white/8 bg-white/3 rounded-2xl p-6 sm:p-10 my-5";
-
-  const primaryButtonClass = isLight
-    ? "inline-flex items-center justify-center rounded-lg bg-[#1b1918] px-5 py-2.5 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition-all duration-150 hover:bg-[#2c2a29] active:scale-95"
-    : "inline-flex items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-[#1b1918] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-150 hover:bg-slate-100 active:scale-95";
-
-  const outlineButtonClass = isLight
-    ? "inline-flex items-center justify-center rounded-lg border border-[#1b1918]/20 bg-transparent px-5 py-2.5 text-sm font-semibold text-[#1b1918] transition-all duration-150 hover:bg-[#1b1918]/5 active:scale-95"
-    : "inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-white/10 active:scale-95";
+  const sectionClass = `home-section ${isLight ? "home-section-light" : "home-section-dark"}`;
+  const primaryButtonClass = `home-btn ${isLight ? "home-btn-primary-light" : "home-btn-primary-dark"}`;
+  const outlineButtonClass = `home-btn ${isLight ? "home-btn-secondary-light" : "home-btn-secondary-dark"}`;
+  const pipelineCardClass = `home-pipeline-card ${isLight ? "home-pipeline-card-light" : "home-pipeline-card-dark"}`;
 
   const sectionTitleClass = isLight
-    ? "font-display mt-2 text-3xl text-slate-950 sm:text-4xl"
-    : "font-display mt-2 text-3xl text-white sm:text-4xl";
+    ? "font-display mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl"
+    : "font-display mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl";
 
   const bubbleClass = isLight
-    ? "bg-white border border-slate-200 text-slate-800 shadow-sm"
-    : "bg-slate-800/95 border border-white/15 text-white shadow-xl";
+    ? "rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm"
+    : "rounded-2xl border border-white/12 bg-slate-800/95 text-white shadow-lg";
 
-  const mentorCardClass = isLight
-    ? "rounded-xl border border-slate-900/10 bg-slate-50/80 p-4"
-    : "rounded-xl border border-white/10 bg-white/3 p-4";
+  const mentorCardClass = isLight ? "home-mini-card-light" : "home-mini-card-dark";
 
   const portfolioBuilderHref = getProfileBuilderHref(user?.id ?? null, profileComplete);
 
   return (
     <div dir={dir} className={shellClass}>
-      <InfiniteGrid isLight={isLight} className="pointer-events-auto" />
-      <main className="relative z-10 mx-auto flex max-w-7xl flex-col gap-5 px-6 pb-16 pt-8 sm:px-8 sm:pb-24 sm:pt-12">
+      <InfiniteGrid isLight={isLight} className="pointer-events-none opacity-[0.22]" />
+      <main className="relative z-10 mx-auto flex max-w-6xl flex-col gap-2 px-6 pb-20 pt-10 sm:px-8 sm:pb-28 sm:pt-14">
 
         {/* ── HERO (no box) ── */}
         <section className="home-hero-shell">
@@ -181,7 +192,7 @@ export default function HomePage() {
                 <span className="home-hero-bubble bubble-three">{t("home.pill_project", "Join a project")}</span>
               </div>
 
-              <p className={`mt-6 max-w-3xl text-lg leading-8 sm:text-[1.55rem] sm:leading-[1.55] ${secondaryTextClass}`}>
+              <p className={`mt-6 max-w-2xl text-lg leading-relaxed sm:text-xl sm:leading-8 ${secondaryTextClass}`}>
                 {t("home.hero_body_line_1", "Build a profile in Arabic or English that shows your skills, projects, and what you're working toward.")}
                 <br />
                 {t("home.hero_body_line_2", "Connect with makers in your city, mentors in the diaspora, and companies looking for talent like yours.")}
@@ -241,7 +252,7 @@ export default function HomePage() {
 
         {/* ── PROBLEM + SOLUTION ── */}
         <section className={sectionClass}>
-          <h2 className={`text-center text-2xl font-semibold sm:text-3xl ${titleClass}`}>
+          <h2 className={`text-center text-2xl font-semibold tracking-tight sm:text-3xl ${titleClass}`}>
             {t("home.problem_question", "Do you find yourself in a similar situation?")}
           </h2>
 
@@ -279,7 +290,7 @@ export default function HomePage() {
           </div>
 
           {/* Solution title */}
-          <h2 className={`mt-16 text-center text-2xl font-semibold sm:text-3xl ${titleClass}`}>
+          <h2 className={`mt-16 text-center text-2xl font-semibold tracking-tight sm:text-3xl ${titleClass}`}>
             {t("home.solution_question", "Then this is the right place to be")}
           </h2>
 
@@ -287,7 +298,7 @@ export default function HomePage() {
           <div className="mt-10 w-full grid grid-cols-1 lg:grid-cols-[1fr_100px_200px_100px_1fr] gap-y-4 lg:gap-y-4 lg:gap-x-0">
 
             {/* ── Box 01 — AI Portfolio ── */}
-            <div className={`lg:col-start-1 lg:row-start-1 flex items-center gap-4 rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 ${isLight ? "border-[#b7ada8]/30 bg-white hover:border-[#5b7fdb]/40 hover:shadow-sm" : "border-white/8 bg-white/3 hover:border-[#8fb7ff]/40 hover:bg-white/6"}`}>
+            <div className={`lg:col-start-1 lg:row-start-1 ${pipelineCardClass}`}>
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isLight ? "bg-[#5b7fdb]/10 text-[#5b7fdb]" : "bg-[#8fb7ff]/15 text-[#8fb7ff]"}`}>
                 <Layers size={20} />
               </div>
@@ -332,7 +343,7 @@ export default function HomePage() {
             </div>
 
             {/* ── Box 02 — Smart Matches ── */}
-            <div className={`lg:col-start-1 lg:row-start-2 flex items-center gap-4 rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 ${isLight ? "border-[#b7ada8]/30 bg-white hover:border-[#0d9488]/40 hover:shadow-sm" : "border-white/8 bg-white/3 hover:border-[#18c29c]/40 hover:bg-white/6"}`}>
+            <div className={`lg:col-start-1 lg:row-start-2 ${pipelineCardClass}`}>
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isLight ? "bg-[#0d9488]/10 text-[#0d9488]" : "bg-[#18c29c]/15 text-[#18c29c]"}`}>
                 <Zap size={20} />
               </div>
@@ -347,7 +358,7 @@ export default function HomePage() {
             </div>
 
             {/* ── Box 03 — Mentorship Programs ── */}
-            <div className={`lg:col-start-1 lg:row-start-3 flex items-center gap-4 rounded-2xl border p-5 transition-all duration-200 hover:-translate-y-0.5 ${isLight ? "border-[#b7ada8]/30 bg-white hover:border-[#e86c00]/35 hover:shadow-sm" : "border-white/8 bg-white/3 hover:border-[#a78bfa]/40 hover:bg-white/6"}`}>
+            <div className={`lg:col-start-1 lg:row-start-3 ${pipelineCardClass}`}>
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isLight ? "bg-[#e86c00]/10 text-[#e86c00]" : "bg-[#a78bfa]/15 text-[#a78bfa]"}`}>
                 <GraduationCap size={20} />
               </div>
@@ -362,13 +373,13 @@ export default function HomePage() {
             </div>
 
             {/* ── Hub card (col 3, rows 1–3) ── */}
-            <div className={`lg:col-start-3 lg:row-start-1 lg:row-span-3 self-center aspect-square w-full flex flex-col items-center justify-center rounded-2xl border-2 p-5 text-center ${isLight ? "border-[#5b7fdb]/35 bg-[#5b7fdb]/5 shadow-[0_8px_24px_-8px_rgba(91,127,219,0.15)]" : "border-[#8fb7ff]/30 bg-[#8fb7ff]/5 shadow-[0_8px_40px_-12px_rgba(143,183,255,0.15)]"}`}>
-              <div className={`inline-flex items-center gap-1.5 rounded-2xl border px-4 py-3 ${isLight ? "border-[#b7ada8]/30 bg-white shadow-sm" : "border-white/10 bg-white/5"}`}>
+            <div className={`lg:col-start-3 lg:row-start-1 lg:row-span-3 self-center aspect-square w-full flex flex-col items-center justify-center rounded-2xl p-5 text-center ${isLight ? "home-hub-card-light" : "home-hub-card-dark"}`}>
+              <div className={`inline-flex items-center gap-1.5 rounded-2xl border px-4 py-3 ${isLight ? "border-slate-200 bg-white shadow-sm" : "border-white/10 bg-white/5"}`}>
                 <span className={`h-2.5 w-2.5 rounded-full ${isLight ? "bg-[#5b7fdb]" : "bg-[#8fb7ff]"}`} />
                 <span className={`h-2.5 w-2.5 rounded-full ${isLight ? "bg-[#847770]" : "bg-[#dfe8ff]"}`} />
                 <span className="h-2.5 w-2.5 rounded-full bg-[#18c29c]" />
               </div>
-              <h3 className={`mt-4 font-display text-2xl font-bold ${isLight ? "text-[#5b7fdb]" : "text-[#8fb7ff]"}`}>
+              <h3 className={`mt-4 font-display text-2xl font-bold ${isLight ? "text-[#2563eb]" : "text-[#8fb7ff]"}`}>
                 {t("site.title", "The Project Hub")}
               </h3>
               <p className={`mt-2 text-xs leading-5 max-w-[160px] ${secondaryTextClass}`}>
@@ -400,7 +411,7 @@ export default function HomePage() {
 
         {/* ── WHAT THE PLATFORM DOES (outside box) ── */}
         <div id="platform-features" className={`scroll-mt-24 ${align} px-2`}>
-          <p className={`text-sm font-medium ${mutedTextClass}`}>
+          <p className="home-platform-label">
             {t("home.platform_label", "What the platform does")}
           </p>
           <TypingFeatureTitle locale={locale} className={sectionTitleClass} />
@@ -410,7 +421,7 @@ export default function HomePage() {
         <section id="portfolio" className={sectionClass}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className={align}>
-              <h2 className={`text-2xl font-bold leading-tight sm:text-3xl ${titleClass}`}>
+              <h2 className={`text-2xl font-semibold tracking-tight leading-tight sm:text-3xl ${titleClass}`}>
                 {t("home.portfolio_title", "Start by making a portfolio first")}
               </h2>
               <p className={`mt-4 text-sm font-semibold ${titleClass}`}>
@@ -431,7 +442,7 @@ export default function HomePage() {
             </div>
 
             {/* Browser window mockup */}
-            <div className={`overflow-hidden rounded-xl border ${isLight ? "border-slate-900/10" : "border-white/10"}`}>
+            <div className={`overflow-hidden rounded-2xl border shadow-sm ${isLight ? "border-slate-200" : "border-white/10"}`}>
               {/* Title bar */}
               <div className={`flex items-center gap-2 border-b px-4 py-3 ${isLight ? "border-slate-900/8 bg-slate-100/80" : "border-white/8 bg-white/5"}`}>
                 <span className="h-3 w-3 rounded-full bg-red-400/80" />
@@ -457,7 +468,7 @@ export default function HomePage() {
         <section id="projects" className={sectionClass}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className={align}>
-              <h2 className={`text-2xl font-bold leading-tight sm:text-3xl ${titleClass}`}>
+              <h2 className={`text-2xl font-semibold tracking-tight leading-tight sm:text-3xl ${titleClass}`}>
                 {t("home.projects_title", "Ready to create impact and work on projects?")}
               </h2>
               <p className={`mt-4 text-sm leading-6 ${secondaryTextClass}`}>
@@ -472,16 +483,50 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Project card placeholders */}
             <div className="flex flex-col gap-4">
-              {[0, 1].map((i) => (
-                <div
-                  key={i}
-                  className={`rounded-xl border p-6 h-28 flex items-center justify-center ${isLight ? "border-slate-900/10 bg-slate-50/60" : "border-white/10 bg-white/3"}`}
-                >
-                  <span className={`text-sm ${mutedTextClass}`}>Project card</span>
-                </div>
-              ))}
+              {sampleProjects.length > 0 ? (
+                sampleProjects.map((project) => (
+                  <Link
+                    key={project.id}
+                    href="/matching"
+                    className={`block rounded-2xl border p-5 transition-all duration-150 hover:-translate-y-0.5 ${isLight ? "border-slate-200 bg-white shadow-sm hover:border-slate-300 hover:shadow-md" : "border-white/10 bg-white/3 hover:bg-white/5"}`}
+                  >
+                    <p className={`text-sm font-semibold ${titleClass}`}>{project.title}</p>
+                    {project.subtitle && (
+                      <p className={`mt-1 line-clamp-2 text-xs leading-relaxed ${secondaryTextClass}`}>{project.subtitle}</p>
+                    )}
+                    {project.location && (
+                      <p className={`mt-2 flex items-center gap-1.5 text-xs ${mutedTextClass}`}>
+                        <MapPin size={12} aria-hidden="true" />
+                        {project.location}
+                      </p>
+                    )}
+                    {project.tags.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {project.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${isLight ? "border-slate-900/10 bg-white text-slate-600" : "border-white/10 bg-white/5 text-[#9eabc4]"}`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </Link>
+                ))
+              ) : (
+                [0, 1].map((i) => (
+                  <div
+                    key={i}
+                    className={`rounded-xl border p-6 h-28 flex items-center justify-center ${isLight ? "border-slate-900/10 bg-slate-50/60" : "border-white/10 bg-white/3"}`}
+                  >
+                    <span className={`text-sm ${mutedTextClass}`}>
+                      {t("home.projects_empty_preview", "Post a project on the matching hub to see it here.")}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -490,7 +535,7 @@ export default function HomePage() {
         <section id="mentorship" className={sectionClass}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
             <div className={align}>
-              <h2 className={`text-2xl font-bold sm:text-3xl ${titleClass}`}>
+              <h2 className={`text-2xl font-semibold tracking-tight sm:text-3xl ${titleClass}`}>
                 {t("home.mentorship_title_short", "Mentorship")}
               </h2>
               <p className={`mt-4 text-sm leading-6 ${secondaryTextClass}`}>
@@ -504,36 +549,56 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* 2×2 benefit cards */}
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { title: t("home.mentor_benefit_1_title", "Resume Reviews"), dots: false },
-                { title: t("home.mentor_benefit_2_title", "Career Conversations"), dots: false },
-                { title: t("home.mentor_benefit_3_title", "Warm Introd."), dots: true },
-                { title: t("home.mentor_benefit_4_title", "Network"), dots: false },
-              ] as { title: string; dots: boolean }[]).map(({ title, dots }) => (
-                <div key={title} className={mentorCardClass}>
-                  <p className={`text-sm font-semibold ${titleClass}`}>{title}</p>
-                  <div className="mt-2.5 space-y-1.5">
-                    <div className={`h-2 w-full rounded-full ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
-                    <div className={`h-2 w-3/4 rounded-full ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
-                  </div>
-                  {dots && (
-                    <div className="mt-2.5 flex gap-1">
-                      {[...Array(6)].map((_, j) => (
-                        <span key={j} className="h-2 w-2 rounded-full bg-red-400" />
-                      ))}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {mentorshipCards.length === 0
+                ? [0, 1, 2, 3].map((i) => (
+                    <div key={`mentorship-skeleton-${i}`} className={`${mentorCardClass} animate-pulse`} aria-hidden="true">
+                      <div className={`h-2.5 w-24 rounded-full ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                      <div className={`mt-3 h-4 w-full rounded-full ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                      <div className={`mt-2 h-3 w-4/5 rounded-full ${isLight ? "bg-slate-100" : "bg-white/5"}`} />
+                      <div className={`mt-3 h-2.5 w-32 rounded-full ${isLight ? "bg-slate-100" : "bg-white/5"}`} />
                     </div>
+                  ))
+                : mentorshipCards.map((card) =>
+                    card.type === "offering" ? (
+                      <Link
+                        key={card.data.id}
+                        href="/mentorship"
+                        className={`block ${mentorCardClass} transition-colors duration-150 hover:border-[#2258d1]/25`}
+                      >
+                        <p className={`text-[10px] font-semibold uppercase tracking-wide ${isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"}`}>
+                          {CATEGORY_LABELS[card.data.category]}
+                        </p>
+                        <p className={`mt-2 text-sm font-semibold leading-snug ${titleClass}`}>{card.data.title}</p>
+                        <p className={`mt-1 line-clamp-2 text-xs leading-relaxed ${secondaryTextClass}`}>{card.data.description}</p>
+                        <p className={`mt-3 text-xs ${mutedTextClass}`}>
+                          {card.data.mentorName} · {card.data.duration}
+                        </p>
+                      </Link>
+                    ) : (
+                      <div key={card.data.id} className={mentorCardClass}>
+                        <div className="flex items-center gap-0.5 text-amber-400" aria-label={`${card.data.rating} out of 5 stars`}>
+                          {Array.from({ length: card.data.rating }).map((_, i) => (
+                            <Star key={i} size={12} fill="currentColor" aria-hidden="true" />
+                          ))}
+                        </div>
+                        <p className={`mt-2 line-clamp-3 text-xs leading-relaxed italic ${secondaryTextClass}`}>
+                          &ldquo;{card.data.quote}&rdquo;
+                        </p>
+                        <p className={`mt-3 text-xs font-semibold ${titleClass}`}>{card.data.author}</p>
+                        <p className={`text-[10px] ${mutedTextClass}`}>
+                          {card.data.role} · {card.data.offeringTitle}
+                        </p>
+                      </div>
+                    )
                   )}
-                </div>
-              ))}
             </div>
           </div>
         </section>
 
       </main>
 
-      <footer className={`border-t ${isLight ? "border-slate-900/8" : "border-white/8"}`}>
+      <footer className={`mt-8 border-t ${isLight ? "border-slate-200 bg-slate-50/50" : "border-white/8"}`}>
         <div className="mx-auto max-w-7xl px-6 py-14 sm:px-8 sm:py-16">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
             <div>

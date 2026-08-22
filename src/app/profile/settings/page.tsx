@@ -173,9 +173,16 @@ export default function ProfileSettingsPage() {
     } finally { setLoading(false); }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    if (signingOut) return;
     setSigningOut(true);
-    signOutUser();
+    try {
+      await signOutUser();
+    } catch {
+      setSigningOut(false);
+      setMessage(t('profile.sign_out_error', 'Failed to sign out.'));
+      setIsError(true);
+    }
   };
 
   // Shared style tokens matching homepage
