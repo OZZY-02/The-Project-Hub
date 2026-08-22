@@ -1,4 +1,4 @@
-/** Stable pilot projects — same on server and client (no Math.random). */
+/** Stable sample projects — same on server and client (no Math.random). */
 export type DemoProject = {
   id: string;
   title: string;
@@ -34,7 +34,7 @@ export const DEMO_PROJECTS: DemoProject[] = [
   {
     id: "demo-project-agritech",
     title: "Nile Delta Crop Monitor",
-    subtitle: "Sensor + dashboard pilot helping small farms track soil moisture and pests.",
+    subtitle: "Sensor + dashboard trial helping small farms track soil moisture and pests.",
     location: "Tanta, Egypt",
     tags: ["Agriculture", "IoT", "Data Science"],
     needed: 5,
@@ -94,11 +94,7 @@ export function demoToSampleProject(project: DemoProject) {
   };
 }
 
-export function getDemoSampleProjects(): SampleProject[] {
-  return DEMO_PROJECTS.map(demoToSampleProject);
-}
-
-/** Merge pilot projects into localStorage once (skipped if already present). */
+/** Merge sample projects into localStorage once (skipped if already present). */
 export function ensureDemoProjectsSeeded(): void {
   if (typeof window === "undefined") return;
 

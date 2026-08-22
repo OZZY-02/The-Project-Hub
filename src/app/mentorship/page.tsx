@@ -7,6 +7,14 @@ import { useTheme } from "../../lib/theme";
 import supabase from "../../lib/supabaseClient";
 import { getProfileBuilderHref } from "../../lib/utils";
 import {
+  CATEGORY_KEYS,
+  CATEGORY_META,
+  MENTORSHIP_OFFERINGS,
+  SEED_MENTORS,
+  type MentorCategoryKey,
+  type MentorProfile,
+} from "../../lib/mentorship-data";
+import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
@@ -27,154 +35,17 @@ import {
   Users,
 } from "lucide-react";
 
-type MentorCategory =
-  | "all"
-  | "resume_review"
-  | "career_conversation"
-  | "interview_prep"
-  | "referral"
-  | "course"
-  | "workshop";
+type MentorCategory = "all" | MentorCategoryKey;
 
-type MentorProfile = {
-  id: string;
-  name: string;
-  bio: string;
-  location: string;
-  tags: string[];
-  categories: Exclude<MentorCategory, "all">[];
-  certified: boolean;
+/** Icons live here rather than in the data module, which stays framework-free. */
+const CATEGORY_ICONS: Record<MentorCategoryKey, React.ReactNode> = {
+  resume_review: <FileText size={14} />,
+  career_conversation: <MessageCircle size={14} />,
+  interview_prep: <Mic size={14} />,
+  referral: <UserPlus size={14} />,
+  course: <BookOpen size={14} />,
+  workshop: <Presentation size={14} />,
 };
-
-type MentorshipOffering = {
-  id: string;
-  title: string;
-  description: string;
-  mentorName: string;
-  category: Exclude<MentorCategory, "all">;
-  format: string;
-  duration: string;
-  certified: boolean;
-  spots?: number;
-};
-
-const CATEGORY_CONFIG: Record<
-  Exclude<MentorCategory, "all">,
-  { icon: React.ReactNode; labelKey: string; fallback: string }
-> = {
-  resume_review: { icon: <FileText size={14} />, labelKey: "mentorship.cat_resume", fallback: "Resume Reviews" },
-  career_conversation: { icon: <MessageCircle size={14} />, labelKey: "mentorship.cat_career", fallback: "Career Conversations" },
-  interview_prep: { icon: <Mic size={14} />, labelKey: "mentorship.cat_interview", fallback: "Interview Prep" },
-  referral: { icon: <UserPlus size={14} />, labelKey: "mentorship.cat_referral", fallback: "Referrals & Intros" },
-  course: { icon: <BookOpen size={14} />, labelKey: "mentorship.cat_course", fallback: "Courses & Lessons" },
-  workshop: { icon: <Presentation size={14} />, labelKey: "mentorship.cat_workshop", fallback: "Workshops" },
-};
-
-const PILOT_OFFERINGS: MentorshipOffering[] = [
-  {
-    id: "offer-1",
-    title: "CV & Resume Polish",
-    description: "Line-by-line feedback on structure, impact bullets, and ATS readiness from a hiring manager.",
-    mentorName: "Amina Hassan",
-    category: "resume_review",
-    format: "1:1 session",
-    duration: "45 min",
-    certified: true,
-    spots: 8,
-  },
-  {
-    id: "offer-2",
-    title: "Career Path Mapping",
-    description: "Talk through your next move — internships, first role, or pivot — with someone who has done it.",
-    mentorName: "Omar El-Tayeb",
-    category: "career_conversation",
-    format: "1:1 session",
-    duration: "60 min",
-    certified: true,
-    spots: 6,
-  },
-  {
-    id: "offer-3",
-    title: "Technical Interview Prep",
-    description: "Mock interviews, system design basics, and feedback tailored to software engineering roles.",
-    mentorName: "Yasmin Abdelrahman",
-    category: "interview_prep",
-    format: "Group cohort",
-    duration: "4 weeks",
-    certified: true,
-    spots: 12,
-  },
-  {
-    id: "offer-4",
-    title: "Warm Referral Introduction",
-    description: "Get connected to hiring teams or collaborators through a trusted diaspora mentor.",
-    mentorName: "Khalid Ibrahim",
-    category: "referral",
-    format: "Intro request",
-    duration: "Async",
-    certified: true,
-  },
-  {
-    id: "offer-5",
-    title: "Product Management Foundations",
-    description: "Self-paced lessons on discovery, roadmaps, and stakeholder communication for aspiring PMs.",
-    mentorName: "Nadia Farouk",
-    category: "course",
-    format: "Mini-course",
-    duration: "6 lessons",
-    certified: true,
-  },
-  {
-    id: "offer-6",
-    title: "LinkedIn & Personal Brand Workshop",
-    description: "Build a profile that gets noticed — headline, story, and outreach templates included.",
-    mentorName: "Samir Noor",
-    category: "workshop",
-    format: "Live workshop",
-    duration: "90 min",
-    certified: true,
-    spots: 20,
-  },
-];
-
-const PILOT_MENTORS: MentorProfile[] = [
-  {
-    id: "pilot-1",
-    name: "Amina Hassan",
-    bio: "Engineering manager at a fintech in London. Helps makers land their first tech roles.",
-    location: "London, UK",
-    tags: ["Software", "Hiring", "CV Reviews"],
-    categories: ["resume_review", "career_conversation", "referral"],
-    certified: true,
-  },
-  {
-    id: "pilot-2",
-    name: "Omar El-Tayeb",
-    bio: "Product lead with 10+ years across Cairo and Dubai. Passionate about Sudanese talent abroad.",
-    location: "Dubai, UAE",
-    tags: ["Product", "Strategy", "Career Growth"],
-    categories: ["career_conversation", "interview_prep", "course"],
-    certified: true,
-  },
-  {
-    id: "pilot-3",
-    name: "Yasmin Abdelrahman",
-    bio: "Senior engineer and interview coach. Runs mock loops for backend and full-stack roles.",
-    location: "Berlin, Germany",
-    tags: ["Engineering", "Interviews", "System Design"],
-    categories: ["interview_prep", "workshop", "course"],
-    certified: true,
-  },
-  {
-    id: "pilot-4",
-    name: "Khalid Ibrahim",
-    bio: "Startup founder and diaspora connector. Opens doors to collaborators, sponsors, and hiring teams.",
-    location: "Toronto, Canada",
-    tags: ["Startups", "Referrals", "Networking"],
-    categories: ["referral", "career_conversation"],
-    certified: true,
-  },
-];
 
 type ProfileRow = {
   id: string;
@@ -215,16 +86,16 @@ function CategoryBadge({
   isLight,
   t,
 }: {
-  category: Exclude<MentorCategory, "all">;
+  category: MentorCategoryKey;
   isLight: boolean;
   t: (k: string, f: string) => string;
 }) {
-  const cfg = CATEGORY_CONFIG[category];
+  const cfg = CATEGORY_META[category];
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
       isLight ? "border-[#2258d1]/20 bg-[#2258d1]/8 text-[#2258d1]" : "border-[#8fb7ff]/20 bg-[#8fb7ff]/8 text-[#8fb7ff]"
     }`}>
-      {cfg.icon}
+      {CATEGORY_ICONS[category]}
       {t(cfg.labelKey, cfg.fallback)}
     </span>
   );
@@ -250,7 +121,7 @@ export default function MentorshipPage() {
   const titleCls = isLight ? "text-slate-950" : "text-[#f5f7fb]";
   const mutedCls = isLight ? "text-slate-500" : "text-[#9eabc4]";
   const dimCls = isLight ? "text-slate-400" : "text-[#6f7e9d]";
-  const categories: MentorCategory[] = ["all", "resume_review", "career_conversation", "interview_prep", "referral", "course", "workshop"];
+  const categories: MentorCategory[] = ["all", ...CATEGORY_KEYS];
 
   useEffect(() => {
     let mounted = true;
@@ -286,7 +157,7 @@ export default function MentorshipPage() {
           const tags: string[] = [];
           if (row.major_field) tags.push(row.major_field);
           if (row.passion_sector) tags.push(row.passion_sector);
-          const mentorCategories: Exclude<MentorCategory, "all">[] = ["career_conversation"];
+          const mentorCategories: MentorCategoryKey[] = ["career_conversation"];
           if (tags.some(tag => /engineer|software|tech|developer/i.test(tag))) mentorCategories.push("interview_prep");
           if (tags.some(tag => /product|business|management/i.test(tag))) {
             mentorCategories.push("resume_review", "referral");
@@ -294,16 +165,16 @@ export default function MentorshipPage() {
           return {
             id: row.id,
             name: `${row.first_name || ""} ${row.last_name || ""}`.trim() || t("mentorship.unnamed_mentor", "Certified Mentor"),
-            bio: row.bio || t("mentorship.default_bio", "Volunteer mentor supporting Sudanese makers in the pilot cohort."),
+            bio: row.bio || t("mentorship.default_bio", "Volunteer mentor supporting Sudanese makers."),
             location: [row.location_city, row.location_country].filter(Boolean).join(", ") || t("mentorship.location_global", "Diaspora"),
             tags: tags.slice(0, 4),
             categories: Array.from(new Set(mentorCategories)),
             certified: true,
           } satisfies MentorProfile;
         });
-        if (mounted) setMentors(mapped.length ? mapped : PILOT_MENTORS);
+        if (mounted) setMentors(mapped.length ? mapped : SEED_MENTORS);
       } catch {
-        if (mounted) setMentors(PILOT_MENTORS);
+        if (mounted) setMentors(SEED_MENTORS);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -333,7 +204,7 @@ export default function MentorshipPage() {
 
   const filteredOfferings = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return PILOT_OFFERINGS.filter(o => {
+    return MENTORSHIP_OFFERINGS.filter(o => {
       if (activeCategory !== "all" && o.category !== activeCategory) return false;
       if (q && !`${o.title} ${o.description} ${o.mentorName}`.toLowerCase().includes(q)) return false;
       return true;
@@ -363,7 +234,7 @@ export default function MentorshipPage() {
             {t("mentorship.subtitle", "Connect with certified Sudanese professionals for resume reviews, career conversations, interview prep, referrals, and guided courses.")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {[t("mentorship.badge_1", "Certified mentors"), t("mentorship.badge_2", "Pilot cohort"), t("mentorship.badge_3", "Arabic + English")].map(b => (
+            {[t("mentorship.badge_1", "Certified mentors"), t("mentorship.badge_2", "Early access"), t("mentorship.badge_3", "Arabic + English")].map(b => (
               <span key={b} className={`rounded-full border px-3 py-1 text-xs font-medium ${isLight ? "border-slate-900/10 bg-white text-slate-600" : "border-white/10 bg-white/5 text-[#9eabc4]"}`}>{b}</span>
             ))}
           </div>
@@ -374,7 +245,7 @@ export default function MentorshipPage() {
             const active = activeCategory === cat;
             const label = cat === "all"
               ? t("mentorship.cat_all", "All")
-              : t(CATEGORY_CONFIG[cat].labelKey, CATEGORY_CONFIG[cat].fallback);
+              : t(CATEGORY_META[cat].labelKey, CATEGORY_META[cat].fallback);
             return (
               <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
                 className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
@@ -382,7 +253,7 @@ export default function MentorshipPage() {
                     ? isLight ? "border-[#2258d1] bg-[#2258d1] text-white" : "border-[#8fb7ff] bg-[#8fb7ff] text-[#09111f]"
                     : isLight ? "border-slate-900/10 bg-white text-slate-600 hover:border-slate-300" : "border-white/8 bg-white/4 text-[#9eabc4] hover:border-white/15"
                 }`}>
-                {cat !== "all" && CATEGORY_CONFIG[cat].icon}
+                {cat !== "all" && CATEGORY_ICONS[cat]}
                 {label}
               </button>
             );
@@ -402,10 +273,10 @@ export default function MentorshipPage() {
                 {t("mentorship.certified_body", "Every mentor is vetted for professional experience and commitment to supporting Sudanese makers.")}
               </p>
               <ul className="mt-4 space-y-2">
-                {Object.entries(CATEGORY_CONFIG).map(([key, cfg]) => (
+                {CATEGORY_KEYS.map((key) => (
                   <li key={key} className={`flex items-center gap-2 text-xs ${mutedCls}`}>
                     <span className={`h-1.5 w-1.5 rounded-full ${isLight ? "bg-[#2258d1]" : "bg-[#8fb7ff]"}`} />
-                    {t(cfg.labelKey, cfg.fallback)}
+                    {t(CATEGORY_META[key].labelKey, CATEGORY_META[key].fallback)}
                   </li>
                 ))}
               </ul>
@@ -550,7 +421,7 @@ export default function MentorshipPage() {
                       <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                         isLight ? "bg-[#2258d1]/10 text-[#2258d1]" : "bg-[#8fb7ff]/15 text-[#8fb7ff]"
                       }`}>
-                        {CATEGORY_CONFIG[offering.category].icon}
+                        {CATEGORY_ICONS[offering.category]}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-start justify-between gap-2">
