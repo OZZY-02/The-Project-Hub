@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS public.match_projects (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- This table already exists in some environments, created before these
+-- migrations, in which case CREATE TABLE above is a no-op. Add anything a
+-- pre-existing copy is missing, or the updated_at trigger below fails at
+-- runtime on the first edit.
+ALTER TABLE public.match_projects
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS images text[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}';
+
 CREATE INDEX IF NOT EXISTS idx_match_projects_user_id ON public.match_projects (user_id);
 CREATE INDEX IF NOT EXISTS idx_match_projects_created_at ON public.match_projects (created_at DESC);
 
