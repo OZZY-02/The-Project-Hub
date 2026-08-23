@@ -415,16 +415,7 @@ export default function MentorshipPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className={`text-base font-semibold ${titleCls}`}>{offering.title}</h3>
-                              {offering.certified && (
-                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                  isLight ? "border-emerald-500/25 bg-emerald-50 text-emerald-700" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-400"
-                                }`}>
-                                  <BadgeCheck size={11} /> {t("mentorship.certified_badge", "Certified")}
-                                </span>
-                              )}
-                            </div>
+                            <h3 className={`text-base font-semibold ${titleCls}`}>{offering.title}</h3>
                             <p className={`mt-1 text-sm ${mutedCls}`}>{offering.description}</p>
                           </div>
                           <CategoryBadge category={offering.category} isLight={isLight} t={t} />
