@@ -137,7 +137,7 @@ export default function SignupPage() {
             {t('auth.signup_title', 'Join the makers collective')}
           </h1>
           <p className={`mt-5 text-lg leading-8 ${secondaryTextClass}`}>
-            {t('auth.signup_subtitle', 'Build your profile, showcase your work, and get discovered by teams, mentors, and sponsors — starting with the Egypt pilot.')}
+            {t('auth.signup_subtitle', 'Build your profile, showcase your work, and get discovered by teams, mentors, and sponsors — free while we are in early access.')}
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2">

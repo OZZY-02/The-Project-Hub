@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import supabase from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Briefcase, MapPin, Star, Users } from 'lucide-react';
+import { ArrowLeft, Briefcase, MapPin, Star, Users } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useTheme } from '@/lib/theme';
+import { normalizeIntakeProjects, normalizeIntakeSkills, type IntakeProject, type IntakeSkill } from '@/lib/intake';
 
 interface Profile {
   id: string;
@@ -17,33 +18,12 @@ interface Profile {
   passion_sector: string;
   is_mentor: boolean;
   bio: string;
-  template_id: 'layout-1' | 'layout-2';
+  avatar_url: string | null;
 }
 
-interface Skill {
-  skill_name: string;
-  proficiency_level: number;
-}
-
-interface Project {
-  project_title_en: string;
-  project_title_ar: string;
-  description_en: string;
-  description_ar: string;
-  user_role: string;
-  is_team_project: boolean;
-  image_url: string;
-}
-
-const getBilingualText = (en: string | null, ar: string | null, lang: 'en' | 'ar', fallback = '') => {
-  if (lang === 'ar' && ar) return ar;
-  if (en) return en;
-  return fallback;
-};
-
-export default function MakerProfilePage({ params }: { params: { id: string } }) {
+export default function MakerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const profileId = params.id;
+  const { id: profileId } = use(params);
   const { locale } = useTranslation();
   const { theme } = useTheme();
   const language = locale === 'ar' ? 'ar' : 'en';
@@ -52,79 +32,64 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
   const isLight = theme === 'light';
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [skills, setSkills] = useState<IntakeSkill[]>([]);
+  const [projects, setProjects] = useState<IntakeProject[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!profileId) return;
+    let mounted = true;
+
     (async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', profileId).single();
-        if (data && !error) {
-          setProfile({
-            id: data.id,
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
-            location_city: data.location_city || '',
-            location_country: data.location_country || '',
-            major_field: data.major_field || '',
-            passion_sector: data.passion_sector || '',
-            is_mentor: data.is_mentor || false,
-            bio: data.bio || '',
-            template_id: data.template_id || 'layout-1',
-          });
-          setSkills([]);
-          setProjects([]);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id,first_name,last_name,location_city,location_country,major_field,passion_sector,is_mentor,bio,avatar_data_url,avatar_url')
+          .eq('id', profileId)
+          .single();
+
+        if (!mounted) return;
+
+        if (!data || error) {
+          setProfile(null);
           setLoading(false);
           return;
         }
-      } catch {}
 
-      // fallback mock
-      await new Promise(r => setTimeout(r, 400));
-      setProfile({
-        id: profileId,
-        first_name: 'Ahmed',
-        last_name: 'Mohamed',
-        location_city: 'Cairo',
-        location_country: 'Egypt',
-        major_field: 'Electrical Engineering',
-        passion_sector: 'Renewable Energy',
-        is_mentor: true,
-        bio: 'Sudanese electrical engineer dedicated to developing affordable solar solutions for communities across the region. I leverage sustainable technology to bring accessible power to underserved areas, focusing on practical and scalable prototypes.',
-        template_id: profileId === 'layout-2' ? 'layout-2' : 'layout-1',
-      });
-      setSkills([
-        { skill_name: 'Python', proficiency_level: 4 },
-        { skill_name: 'AutoCAD', proficiency_level: 5 },
-        { skill_name: 'Project Management', proficiency_level: 3 },
-        { skill_name: 'Solar Modeling', proficiency_level: 4 },
-        { skill_name: 'Circuit Design', proficiency_level: 4 },
-      ]);
-      setProjects([
-        {
-          project_title_en: 'Low-Cost Solar Water Pump',
-          project_title_ar: 'مضخة مياه شمسية منخفضة التكلفة',
-          description_en: 'Designed and prototyped a solar-powered water pump system for small agricultural use, reducing reliance on expensive diesel generators and minimizing environmental impact.',
-          description_ar: 'تصميم نموذج أولي لنظام مضخة مياه تعمل بالطاقة الشمسية مخصص للاستخدام الزراعي الصغير.',
-          user_role: 'Lead Designer & Engineer',
-          is_team_project: true,
-          image_url: 'https://placehold.co/800x500/10b981/ffffff?text=Solar+Pump+Project',
-        },
-        {
-          project_title_en: 'Maadi Community Energy Audit',
-          project_title_ar: 'تدقيق الطاقة لمجتمع المعادي',
-          description_en: 'Conducted a deep-dive analysis of energy consumption in a Cairo neighborhood to propose efficiency improvements and reduce household electricity costs by 30%.',
-          description_ar: 'إجراء تحليل متعمق لاستهلاك الطاقة في حي محلي بالقاهرة لاقتراح تحسينات في الكفاءة.',
-          user_role: 'Researcher & Analyst',
-          is_team_project: false,
-          image_url: 'https://placehold.co/800x500/f59e0b/000000?text=Energy+Audit',
-        },
-      ]);
-      setLoading(false);
+        setProfile({
+          id: data.id,
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
+          location_city: data.location_city || '',
+          location_country: data.location_country || '',
+          major_field: data.major_field || '',
+          passion_sector: data.passion_sector || '',
+          is_mentor: data.is_mentor || false,
+          bio: data.bio || '',
+          avatar_url: data.avatar_url || data.avatar_data_url || null,
+        });
+
+        // Skills and projects live in profile_intakes, written by /profile/create.
+        const { data: intakeRows } = await supabase
+          .from('profile_intakes')
+          .select('data')
+          .eq('user_id', profileId)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+
+        if (!mounted) return;
+        const intake = intakeRows?.[0]?.data ?? null;
+        setSkills(normalizeIntakeSkills(intake));
+        setProjects(normalizeIntakeProjects(intake));
+      } catch {
+        if (mounted) setProfile(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     })();
+
+    return () => { mounted = false; };
   }, [profileId]);
 
   // Style tokens
@@ -181,9 +146,17 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
     return (
       <div dir={dir} className={shellClass}>
         <div className="mx-auto max-w-xl px-6 py-24 text-center">
-          <h1 className={`text-2xl font-bold ${titleClass}`}>Profile Not Found</h1>
-          <button onClick={() => router.push('/')} className={`mt-4 inline-flex items-center gap-2 text-sm transition-colors duration-150 ${secondaryTextClass} hover:${titleClass}`}>
-            <ArrowLeft size={16} aria-hidden="true" /> Go to Hub Home
+          <h1 className={`text-2xl font-bold ${titleClass}`}>
+            {language === 'ar' ? 'الملف الشخصي غير موجود' : 'Profile not found'}
+          </h1>
+          <p className={`mt-3 text-sm ${secondaryTextClass}`}>
+            {language === 'ar'
+              ? 'ربما تم حذف هذا الملف الشخصي أو أن الرابط غير صحيح.'
+              : 'This profile may have been removed, or the link is incorrect.'}
+          </p>
+          <button onClick={() => router.push('/')} className={`mt-6 inline-flex items-center gap-2 text-sm transition-colors duration-150 ${secondaryTextClass} hover:${titleClass}`}>
+            <ArrowLeft size={16} className="rtl:rotate-180" aria-hidden="true" />
+            {language === 'ar' ? 'العودة إلى الصفحة الرئيسية' : 'Go to Hub Home'}
           </button>
         </div>
       </div>
@@ -216,9 +189,14 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
             <div className={`${cardClass} p-6 ${align}`}>
               <div className="mb-5 flex flex-col items-center text-center">
                 <div className={`h-24 w-24 overflow-hidden rounded-full border-2 ${isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-white/5'}`}>
-                  <div className={`flex h-full w-full items-center justify-center text-2xl font-bold ${isLight ? 'text-slate-400' : 'text-[#8fb7ff]'}`}>
-                    {initials}
-                  </div>
+                  {profile.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatar_url} alt={fullName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className={`flex h-full w-full items-center justify-center text-2xl font-bold ${isLight ? 'text-slate-400' : 'text-[#8fb7ff]'}`}>
+                      {initials}
+                    </div>
+                  )}
                 </div>
                 <h1 className={`mt-4 text-xl font-bold ${titleClass}`}>{fullName}</h1>
                 {profile.is_mentor && (
@@ -259,8 +237,12 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
-                    <span key={skill.skill_name} title={`Proficiency: ${skill.proficiency_level}/5`} className={tagClass}>
-                      {skill.skill_name}
+                    <span
+                      key={skill.name}
+                      title={skill.level ? `Proficiency: ${skill.level}/5` : undefined}
+                      className={tagClass}
+                    >
+                      {skill.name}
                     </span>
                   ))}
                 </div>
@@ -282,7 +264,7 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
             )}
 
             {/* Projects */}
-            {projects.length > 0 && (
+            {projects.length > 0 ? (
               <div className={align}>
                 <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-[#8fb7ff]">
                   {language === 'ar' ? 'المشاريع' : 'Featured Projects'}
@@ -290,46 +272,56 @@ export default function MakerProfilePage({ params }: { params: { id: string } })
                 <div className="space-y-4">
                   {projects.map((project, index) => (
                     <article key={index} className={`${cardClass} overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(143,183,255,0.2)]`}>
-                      <img
-                        src={project.image_url}
-                        alt={getBilingualText(project.project_title_en, project.project_title_ar, language, 'Project image')}
-                        className="h-48 w-full object-cover"
-                        loading="lazy"
-                        onError={(e) => { e.currentTarget.src = 'https://placehold.co/800x400/1e293b/ffffff?text=Project'; }}
-                      />
+                      {project.images.length > 0 && (
+                        <div className={`grid gap-1 ${project.images.length > 1 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'}`}>
+                          {project.images.slice(0, 3).map((src, imgIdx) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={imgIdx}
+                              src={src}
+                              alt={`${project.name} ${imgIdx + 1}`}
+                              className="h-40 w-full object-cover"
+                              loading="lazy"
+                            />
+                          ))}
+                        </div>
+                      )}
                       <div className="p-6">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <h2 className={`text-xl font-bold ${titleClass}`}>
-                            {getBilingualText(project.project_title_en, project.project_title_ar, language, 'Untitled')}
+                            {project.name || (language === 'ar' ? 'بدون عنوان' : 'Untitled')}
                           </h2>
-                          {project.is_team_project && (
+                          {project.isTeam && (
                             <span className={`${tagClass} shrink-0`}>
                               <Users size={11} className="me-1" aria-hidden="true" />
                               {language === 'ar' ? 'مشروع جماعي' : 'Team Project'}
                             </span>
                           )}
                         </div>
-                        <p className={`mt-1 text-sm font-medium text-[#8fb7ff]`}>
-                          {language === 'ar' ? 'الدور: ' : 'Role: '}{project.user_role}
-                        </p>
-                        <p className={`mt-3 text-sm leading-7 ${secondaryTextClass}`}>
-                          {getBilingualText(project.description_en, project.description_ar, language, '')}
-                        </p>
-                        <button className={`mt-4 inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-medium transition-colors duration-150 ${isLight ? 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50' : 'border-white/10 text-[#d8e4ff] hover:border-white/20 hover:bg-white/5'}`}>
-                          {language === 'ar' ? 'عرض التفاصيل' : 'View details'}
-                          <ArrowRight size={13} className="rtl:rotate-180" aria-hidden="true" />
-                        </button>
+                        {project.role && (
+                          <p className="mt-1 text-sm font-medium text-[#8fb7ff]">
+                            {language === 'ar' ? 'الدور: ' : 'Role: '}{project.role}
+                          </p>
+                        )}
+                        {project.description && (
+                          <p className={`mt-3 text-sm leading-7 ${secondaryTextClass}`}>{project.description}</p>
+                        )}
+                        {project.tags.length > 0 && (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {project.tags.map(tag => (
+                              <span key={tag} className={tagClass}>{tag}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </article>
                   ))}
                 </div>
               </div>
-            )}
-
-            {projects.length === 0 && (
+            ) : (
               <div className={`${cardClass} p-8 text-center ${align}`}>
                 <p className={`text-sm ${mutedClass}`}>
-                  {language === 'en' ? 'No projects added yet.' : 'لم يتم إضافة مشاريع بعد.'}
+                  {language === 'ar' ? 'لم يتم إضافة مشاريع بعد.' : 'No projects added yet.'}
                 </p>
               </div>
             )}

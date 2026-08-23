@@ -13,6 +13,8 @@ import {
 import supabase from "../../lib/supabaseClient";
 import { getProfileBuilderHref } from "../../lib/utils";
 import { ensureDemoProjectsSeeded } from "../../lib/demo-projects";
+import { normalizeIntakeSkills } from "../../lib/intake";
+import { uploadProjectImages } from "../../lib/storage";
 
 type ProfileRow = {
   id: string;
@@ -105,11 +107,14 @@ function FilterInput({ value, onChange, onAdd, placeholder, listId, isLight }: {
 }
 
 /* ── Type badge ──────────────────────────────────────────────────────────── */
-function TypeBadge({ type, postTypes, isLight }: { type: MatchCard["type"]; postTypes?: string[]; isLight: boolean }) {
+function TypeBadge({ type, postTypes, isLight, t }: {
+  type: MatchCard["type"]; postTypes?: string[]; isLight: boolean;
+  t: (key: string, fallback: string) => string;
+}) {
   const configs = {
-    mentor:  { label: "Mentor",  cls: isLight ? "border-[#2258d1]/20 bg-[#2258d1]/8 text-[#2258d1]"   : "border-[#8fb7ff]/20 bg-[#8fb7ff]/8 text-[#8fb7ff]" },
-    maker:   { label: "Maker",   cls: isLight ? "border-cyan-500/20 bg-cyan-50 text-cyan-700"            : "border-cyan-400/20 bg-cyan-400/8 text-cyan-400" },
-    project: { label: postTypes?.join(" + ") || "Project", cls: isLight ? "border-purple-500/20 bg-purple-50 text-purple-700" : "border-purple-400/20 bg-purple-400/8 text-purple-400" },
+    mentor:  { label: t("matching.type_mentor", "Mentor"), cls: isLight ? "border-[#2258d1]/20 bg-[#2258d1]/8 text-[#2258d1]"   : "border-[#8fb7ff]/20 bg-[#8fb7ff]/8 text-[#8fb7ff]" },
+    maker:   { label: t("matching.type_maker", "Maker"),   cls: isLight ? "border-cyan-500/20 bg-cyan-50 text-cyan-700"            : "border-cyan-400/20 bg-cyan-400/8 text-cyan-400" },
+    project: { label: postTypes?.join(" + ") || t("matching.type_project", "Project"), cls: isLight ? "border-purple-500/20 bg-purple-50 text-purple-700" : "border-purple-400/20 bg-purple-400/8 text-purple-400" },
   };
   const { label, cls } = configs[type];
   return <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${cls}`}>{label}</span>;
@@ -157,7 +162,6 @@ export default function MatchingPage() {
   const savedStorageKey = "matching_saved_matches";
   const projectsStorageKey = "matching_project_posts";
   const filtersStorageKey = "matching_filters";
-  const storageBucket = "match-projects";
 
   /* ── Helpers ── */
   const formatLocation = (row: ProfileRow) => {
@@ -196,60 +200,77 @@ export default function MatchingPage() {
     } catch {}
   };
 
-  /* ── Upload ── */
-  const uploadDataUrlToStorage = async (path: string, dataUrl: string) => {
-    try {
-      const blob = await (await fetch(dataUrl)).blob();
-      const { error } = await supabase.storage.from(storageBucket).upload(path, blob, { contentType: blob.type || "image/jpeg", upsert: true });
-      if (error) throw error;
-      return supabase.storage.from(storageBucket).getPublicUrl(path).data?.publicUrl || null;
-    } catch { return null; }
-  };
-
   /* ── Add/delete project ── */
-  const handleAddProject = async () => {
-    if (!projectTitle.trim()) return;
-    const id = editingProjectId || `project-${Date.now()}`;
-    let finalImages = projectImages.slice(0, 3);
-    if (currentUserId) {
-      const uploaded: string[] = [];
-      for (const [idx, img] of finalImages.entries()) {
-        if (img.startsWith("data:")) { const url = await uploadDataUrlToStorage(`projects/${currentUserId}/${id}-${idx}.jpg`, img); if (url) uploaded.push(url); }
-        else uploaded.push(img);
-      }
-      if (uploaded.length) finalImages = uploaded;
-    }
-    const proj: MatchCard = {
-      id, title: projectTitle.trim(),
-      subtitle: projectSubtitle.trim() || t("matching.project_subtitle_default", "Looking for collaborators."),
-      location: projectLocation.trim() || (currentProfile ? formatLocation(currentProfile) : t("matching.location_unknown")),
-      tags: [...projectSkills, ...projectTags.split(",").map(t => t.trim()).filter(Boolean)].slice(0, 6),
-      type: "project", needed: projectNeeded, joined: projectJoined,
-      images: finalImages.slice(0, 3), ownerId: currentUserId || undefined,
-      postTypes: projectPostTypes.length ? projectPostTypes : ["Project"],
-    };
-    const local = loadProjectsLocal();
-    const merged = [proj, ...local.filter(p => p.id !== proj.id)];
-    persistProjectsLocal(merged); setProjectMatches(merged);
+  const resetProjectForm = () => {
     setProjectTitle(""); setProjectSubtitle(""); setProjectLocation(""); setProjectTags("");
     setProjectSkillInput(""); setProjectSkills([]); setProjectNeeded(3); setProjectJoined(0);
     setProjectImages([]); setProjectPostTypes(["Project"]); setEditingProjectId(null); setShowProjectForm(false);
+  };
+
+  const handleAddProject = async () => {
+    if (!projectTitle.trim()) return;
+
+    // Provisional id — replaced by the database id once the row is written, so
+    // the local copy and the shared copy never show up as two separate cards.
+    const localId = editingProjectId || `project-${Date.now()}`;
+    const images = currentUserId
+      ? await uploadProjectImages(currentUserId, localId, projectImages.slice(0, 3))
+      : projectImages.slice(0, 3);
+
+    const proj: MatchCard = {
+      id: localId, title: projectTitle.trim(),
+      subtitle: projectSubtitle.trim() || t("matching.project_subtitle_default", "Looking for collaborators."),
+      location: projectLocation.trim() || (currentProfile ? formatLocation(currentProfile) : t("matching.location_unknown", "Location not set")),
+      tags: [...projectSkills, ...projectTags.split(",").map(tag => tag.trim()).filter(Boolean)].slice(0, 6),
+      type: "project", needed: projectNeeded, joined: projectJoined,
+      images: images.slice(0, 3), ownerId: currentUserId || undefined,
+      postTypes: projectPostTypes.length ? projectPostTypes : ["Project"],
+    };
+
+    const savedProject = await persistProjectToDb(proj);
+    const local = loadProjectsLocal().filter(p => p.id !== localId && p.id !== savedProject.id);
+    const merged = [savedProject, ...local];
+    persistProjectsLocal(merged);
+    setProjectMatches(merged);
+    resetProjectForm();
+  };
+
+  /**
+   * Write a project to Supabase and return it carrying the database id. Falls
+   * back to the local-only card when the user is signed out or the write fails,
+   * so posting never silently drops the project.
+   */
+  const persistProjectToDb = async (proj: MatchCard): Promise<MatchCard> => {
+    if (!currentUserId) return proj;
     try {
-      const { data: ud } = await supabase.auth.getUser(); const user = ud?.user; if (!user) return;
-      const payload = { user_id: user.id, title: proj.title, subtitle: proj.subtitle, location: proj.location, tags: proj.tags, needed: proj.needed, joined: proj.joined, images: proj.images, data: proj };
-      if (editingProjectId) await supabase.from("match_projects").update(payload).eq("id", editingProjectId);
-      else await supabase.from("match_projects").insert(payload);
-    } catch {}
+      const payload = {
+        user_id: currentUserId, title: proj.title, subtitle: proj.subtitle,
+        location: proj.location, tags: proj.tags, needed: proj.needed,
+        joined: proj.joined, images: proj.images, data: proj,
+      };
+
+      const isExistingRow = Boolean(editingProjectId) && !editingProjectId!.startsWith("project-");
+      const { data, error } = isExistingRow
+        ? await supabase.from("match_projects").update(payload).eq("id", editingProjectId!).select("id").single()
+        : await supabase.from("match_projects").insert(payload).select("id").single();
+
+      if (error || !data?.id) throw error ?? new Error("No id returned");
+      return { ...proj, id: data.id, ownerId: currentUserId };
+    } catch (error) {
+      console.warn("Could not save project to Supabase, keeping it local only.", error);
+      return proj;
+    }
   };
 
   const handleDeleteProject = async (project: MatchCard) => {
     const local = loadProjectsLocal().filter(p => p.id !== project.id);
     persistProjectsLocal(local); setProjectMatches(local);
+    if (!currentUserId || project.ownerId !== currentUserId) return;
     try {
-      const { data: ud } = await supabase.auth.getUser(); const user = ud?.user;
-      if (!user || project.ownerId !== user.id) return;
       await supabase.from("match_projects").delete().eq("id", project.id);
-    } catch {}
+    } catch (error) {
+      console.warn("Could not delete project from Supabase.", error);
+    }
   };
 
   /* ── Filters ── */
@@ -286,7 +307,9 @@ export default function MatchingPage() {
         if (mounted) setCurrentProfile(profile || null);
         try {
           const { data: intakeRows } = await supabase.from("profile_intakes").select("data").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1);
-          const skills = intakeRows?.[0]?.data?.skills || [];
+          // Intake skills may be plain strings or { name, level } objects
+          // depending on which builder wrote the row.
+          const skills = normalizeIntakeSkills(intakeRows?.[0]?.data).map(s => s.name);
           if (mounted) { setIntakeSkills(skills); if (skills.length > 0 && filterSkillTags.length === 0) setFilterSkillTags(skills.slice(0, 5)); }
         } catch {}
         let query = supabase.from("profiles").select("id, first_name, last_name, location_city, location_country, major_field, passion_sector, is_mentor, bio").neq("id", user.id).limit(20);
@@ -395,7 +418,7 @@ export default function MatchingPage() {
           className={`mb-6 inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
             isLight ? "border-slate-900/10 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900" : "border-white/8 bg-white/4 text-[#9eabc4] hover:border-white/15 hover:text-[#f5f7fb]"
           }`}>
-          <ArrowLeft size={15} /> Back to home
+          <ArrowLeft size={15} /> {t("matching.back_home", "Back to home")}
         </Link>
 
         {/* Page header */}
@@ -407,12 +430,12 @@ export default function MatchingPage() {
             {t("matching.title", "Find projects and collaborators")}
           </h1>
           <p className={`mt-2 max-w-2xl text-sm leading-relaxed ${mutedCls}`}>
-            {t("matching.subtitle", "Discover projects that need your skills and connect with makers in the pilot cohort across Egypt.")}
+            {t("matching.subtitle", "Discover projects that need your skills and connect with makers building alongside you.")}
           </p>
 
           {/* Badges + saved link */}
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {[t("matching.badge_1","Pilot: 100 makers"), t("matching.badge_2","Arabic + English"), t("matching.badge_3","Cairo + Alexandria")].map(b => (
+            {[t("matching.badge_1","Early access"), t("matching.badge_2","Arabic + English"), t("matching.badge_3","Free to join")].map(b => (
               <span key={b} className={`rounded-full border px-3 py-1 text-xs font-medium ${isLight ? "border-slate-900/10 bg-white text-slate-600" : "border-white/10 bg-white/5 text-[#9eabc4]"}`}>{b}</span>
             ))}
             <Link href="/matching/saved"
@@ -533,7 +556,7 @@ export default function MatchingPage() {
                   {t("matching.discovery_title", "Discovery boosts")}
                 </p>
               </div>
-              <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>{t("matching.discovery_body", "Add 2+ projects and a resume to be featured in the pilot spotlight feed.")}</p>
+              <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>{t("matching.discovery_body", "Add 2+ projects and a resume to be featured in the spotlight feed.")}</p>
               <div className="mt-3 space-y-1.5">
                 {[t("matching.discovery_tag_1","Portfolio spotlight"), t("matching.discovery_tag_2","Mentor recommendations"), t("matching.discovery_tag_3","Project invitations")].map(tag => (
                   <div key={tag} className={`flex items-center gap-2 text-xs ${mutedCls}`}>
@@ -555,7 +578,7 @@ export default function MatchingPage() {
                 <input
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, skill, or keyword…"
+                  placeholder={t("matching.search_placeholder", "Search by name, skill, or keyword…")}
                   className={`w-full rounded-xl border py-2.5 pl-9 pr-4 text-sm outline-none transition-all duration-150 ${
                     isLight
                       ? "border-slate-900/10 bg-white text-slate-900 placeholder-slate-400 focus:border-[#2258d1] focus:shadow-[0_0_0_3px_rgba(34,88,209,0.08)]"
@@ -574,9 +597,9 @@ export default function MatchingPage() {
             {/* Tabs */}
             <div className={`mb-4 flex gap-1 rounded-xl border p-1 ${isLight ? "border-slate-900/8 bg-slate-100/60" : "border-white/6 bg-white/3"}`}>
               {([
-                { key: "all",     label: "All",      icon: <Sparkles size={13} /> },
-                { key: "project", label: "Projects", icon: <FolderKanban size={13} /> },
-                { key: "maker",   label: "Makers",   icon: <UserCircle2 size={13} /> },
+                { key: "all",     label: t("matching.tab_all", "All"),           icon: <Sparkles size={13} /> },
+                { key: "project", label: t("matching.tab_projects", "Projects"), icon: <FolderKanban size={13} /> },
+                { key: "maker",   label: t("matching.tab_makers", "Makers"),     icon: <UserCircle2 size={13} /> },
               ] as const).map(({ key, label, icon }) => (
                 <button key={key} type="button" onClick={() => setActiveTab(key)}
                   className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-150 ${
@@ -620,7 +643,7 @@ export default function MatchingPage() {
                     className={`mt-4 cursor-pointer rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
                       isLight ? "border-slate-900/10 text-slate-600 hover:border-slate-300" : "border-white/8 text-[#9eabc4] hover:border-white/15"
                     }`}>
-                    Clear filters
+                    {t("matching.clear_filters", "Clear all filters")}
                   </button>
                 )}
               </div>
@@ -639,7 +662,7 @@ export default function MatchingPage() {
                             <h3 className={`truncate text-base font-semibold ${titleCls}`}>{match.title}</h3>
                             <p className={`mt-0.5 line-clamp-2 text-sm ${mutedCls}`}>{match.subtitle}</p>
                           </div>
-                          <TypeBadge type={match.type} postTypes={match.postTypes} isLight={isLight} />
+                          <TypeBadge type={match.type} postTypes={match.postTypes} isLight={isLight} t={t} />
                         </div>
 
                         <div className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs ${dimCls}`}>
@@ -650,7 +673,7 @@ export default function MatchingPage() {
                           {match.type === "project" && (
                             <span className="inline-flex items-center gap-1.5">
                               <Users size={13} className={isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"} />
-                              {match.joined ?? 0}/{match.needed ?? 0} people
+                              {match.joined ?? 0}/{match.needed ?? 0} {t("matching.project_people", "people")}
                             </span>
                           )}
                         </div>
@@ -717,7 +740,7 @@ export default function MatchingPage() {
           }`}>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className={`text-base font-bold ${titleCls}`}>{editingProjectId ? "Edit project" : t("matching.project_form_title", "Post a project")}</h3>
+                <h3 className={`text-base font-bold ${titleCls}`}>{editingProjectId ? t("matching.project_form_edit_title", "Edit project") : t("matching.project_form_title", "Post a project")}</h3>
                 <p className={`mt-0.5 text-xs ${dimCls}`}>{t("matching.project_form_subtitle", "Share a project so makers nearby can join.")}</p>
               </div>
               <button type="button" onClick={() => { setShowProjectForm(false); setEditingProjectId(null); }}
@@ -728,33 +751,33 @@ export default function MatchingPage() {
 
             <div className="mt-5 space-y-4">
               <div>
-                <label className={labelCls}>Project title *</label>
+                <label className={labelCls}>{t("matching.project_title_label", "Project title")} *</label>
                 <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)} placeholder={t("matching.project_title_placeholder", "What are you building?")} className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>Description</label>
+                <label className={labelCls}>{t("matching.project_description_label", "Description")}</label>
                 <textarea value={projectSubtitle} onChange={e => setProjectSubtitle(e.target.value)} placeholder={t("matching.project_subtitle_placeholder", "What's the problem you're solving?")} rows={3} className={`${inputCls} resize-none leading-relaxed`} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>Location</label>
-                  <input list="place-list" value={projectLocation} onChange={e => setProjectLocation(e.target.value)} placeholder="Cairo, Egypt" className={inputCls} />
+                  <label className={labelCls}>{t("matching.project_location_label", "Location")}</label>
+                  <input list="place-list" value={projectLocation} onChange={e => setProjectLocation(e.target.value)} placeholder={t("matching.project_location_placeholder", "City, country")} className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>People needed</label>
+                  <label className={labelCls}>{t("matching.project_needed_label", "People needed")}</label>
                   <input type="number" min={1} max={20} value={projectNeeded} onChange={e => setProjectNeeded(Number(e.target.value))} className={inputCls} />
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Skills needed</label>
+                <label className={labelCls}>{t("matching.project_skills_label", "Skills needed")}</label>
                 <div className="flex gap-2">
-                  <input value={projectSkillInput} onChange={e => setProjectSkillInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addProjectSkill(); } }} placeholder="React, Python…" className={inputCls} />
+                  <input value={projectSkillInput} onChange={e => setProjectSkillInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addProjectSkill(); } }} placeholder={t("matching.project_skills_placeholder", "React, Python…")} className={inputCls} />
                   <button type="button" onClick={addProjectSkill} className={`flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors ${isLight ? "bg-slate-950 text-white hover:bg-slate-700" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"}`}><Plus size={15} /></button>
                 </div>
                 {projectSkills.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{projectSkills.map(s => <Chip key={s} label={s} onRemove={() => setProjectSkills(p => p.filter(x => x !== s))} isLight={isLight} />)}</div>}
               </div>
               <div>
-                <label className={labelCls}>Project images ({projectImages.length}/3)</label>
+                <label className={labelCls}>{t("matching.project_images_label", "Project images")} ({projectImages.length}/3)</label>
                 <div className="flex flex-wrap gap-2">
                   {projectImages.map(url => (
                     <div key={url} className={`group relative h-16 w-16 overflow-hidden rounded-xl border ${isLight ? "border-slate-900/8" : "border-white/8"}`}>
@@ -778,7 +801,7 @@ export default function MatchingPage() {
                 className={`flex-1 cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
                   isLight ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"
                 }`}>
-                {editingProjectId ? "Save changes" : t("matching.project_publish", "Publish")}
+                {editingProjectId ? t("matching.project_save", "Save changes") : t("matching.project_publish", "Publish")}
               </button>
               <button type="button" onClick={() => { setShowProjectForm(false); setEditingProjectId(null); }}
                 className={`cursor-pointer rounded-xl border px-5 py-3 text-sm font-medium transition-colors duration-150 ${

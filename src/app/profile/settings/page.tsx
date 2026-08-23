@@ -5,7 +5,8 @@ import supabase from '../../../lib/supabaseClient';
 import { signOutUser } from '../../../lib/auth';
 import { useTranslation } from '../../../lib/i18n';
 import { useTheme } from '../../../lib/theme';
-import { Camera, Check, ChevronRight, Lock, LogOut, MapPin, Sparkles, User } from 'lucide-react';
+import { uploadAvatar } from '../../../lib/storage';
+import { Camera, Check, Lock, LogOut, MapPin, Sparkles, User } from 'lucide-react';
 
 export default function ProfileSettingsPage() {
   const { t, locale } = useTranslation();
@@ -18,7 +19,9 @@ export default function ProfileSettingsPage() {
   const [password, setPassword] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(null);
+  /** Saved avatar — a bucket URL when uploads work, a data URL on fallback. */
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarInBucket, setAvatarInBucket] = useState(false);
   const [locationCountry, setLocationCountry] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
@@ -31,7 +34,6 @@ export default function ProfileSettingsPage() {
   const [signingOut, setSigningOut] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
-  const [activeSection, setActiveSection] = useState<string | null>(null);
 
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const align = locale === 'ar' ? 'text-right' : 'text-left';
@@ -45,14 +47,16 @@ export default function ProfileSettingsPage() {
       setEmail(current?.email || '');
       if (current) {
         const { data: profile } = await supabase.from('profiles')
-          .select('first_name,last_name,username,avatar_data_url,location_country,location_city,major_field,passion_sector,is_mentor,bio')
+          .select('first_name,last_name,username,avatar_url,avatar_data_url,location_country,location_city,major_field,passion_sector,is_mentor,bio')
           .eq('id', current.id).single();
         if (profile) {
+          const savedAvatar = profile.avatar_url || profile.avatar_data_url || null;
           setFirstName(profile.first_name || '');
           setLastName(profile.last_name || '');
           setUsername(profile.username || '');
-          setAvatarDataUrl(profile.avatar_data_url || null);
-          setAvatarPreview(profile.avatar_data_url || null);
+          setAvatarUrl(savedAvatar);
+          setAvatarInBucket(Boolean(profile.avatar_url));
+          setAvatarPreview(savedAvatar);
           setLocationCountry(profile.location_country || '');
           setLocationCity(profile.location_city || '');
           setMajorField(profile.major_field || '');
@@ -64,12 +68,13 @@ export default function ProfileSettingsPage() {
     })();
   }, []);
 
+  // Preview only — the file is not persisted until "Save photo".
   useEffect(() => {
     if (!avatarFile) return;
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string | null;
-      if (result) { setAvatarPreview(result); setAvatarDataUrl(result); }
+      if (result) setAvatarPreview(result);
     };
     reader.readAsDataURL(avatarFile);
   }, [avatarFile]);
@@ -105,19 +110,31 @@ export default function ProfileSettingsPage() {
     setAvatarFile(e.target.files?.[0] || null);
   };
 
+  /**
+   * Which columns to write for the current avatar. Only one is ever populated,
+   * so a stale base64 value can't shadow a newly uploaded bucket URL.
+   */
+  const avatarColumns = (url: string | null, inBucket: boolean) => ({
+    avatar_url: inBucket ? url : null,
+    avatar_data_url: inBucket ? null : url,
+  });
+
   const handleUploadAvatar = async () => {
     if (!user || !avatarFile) return;
     setLoading(true);
     try {
-      const reader = new FileReader();
-      const dataUrl: string = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(avatarFile);
+      const { url, storedInBucket } = await uploadAvatar(user.id, avatarFile);
+      if (!url) throw new Error('Failed to process image');
+
+      const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
+        ...avatarColumns(url, storedInBucket),
       });
-      await supabase.from('profiles').upsert({ id: user.id, avatar_data_url: dataUrl });
-      setAvatarDataUrl(dataUrl);
-      setAvatarPreview(dataUrl);
+      if (error) throw error;
+
+      setAvatarUrl(url);
+      setAvatarInBucket(storedInBucket);
+      setAvatarPreview(url);
       setAvatarFile(null);
       setMessage(t('profile.avatar_saved', 'Avatar saved.'));
       setIsError(false);
@@ -152,7 +169,7 @@ export default function ProfileSettingsPage() {
         first_name: firstName,
         last_name: lastName,
         username: username || null,
-        avatar_data_url: avatarDataUrl,
+        ...avatarColumns(avatarUrl, avatarInBucket),
         location_country: locationCountry || null,
         location_city: locationCity || null,
         major_field: majorField || null,
@@ -198,7 +215,6 @@ export default function ProfileSettingsPage() {
   const cardClass = isLight
     ? 'rounded-3xl border border-slate-900/8 bg-white/90 shadow-[0_22px_70px_-52px_rgba(15,23,42,0.14)] backdrop-blur-xl overflow-hidden'
     : 'rounded-3xl border border-white/8 bg-white/[0.04] shadow-[0_28px_80px_-40px_rgba(0,0,0,0.8)] backdrop-blur-xl overflow-hidden';
-  const sectionDivider = isLight ? 'border-t border-slate-100' : 'border-t border-white/6';
   const labelClass = isLight ? 'block text-sm font-medium text-slate-700' : 'block text-sm font-medium text-[#c8d4e8]';
   const hintClass = `mt-1.5 text-xs ${mutedClass}`;
   const kickerClass = 'text-xs font-semibold uppercase tracking-[0.22em] text-[#8fb7ff]';
@@ -271,7 +287,7 @@ export default function ProfileSettingsPage() {
                     className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors duration-150 ${isLight ? 'bg-slate-950 text-white hover:bg-slate-800' : 'bg-[#2258d1] text-white hover:bg-[#1a46ab]'}`}>
                     {loading ? 'Saving…' : 'Save photo'}
                   </button>
-                  <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarDataUrl); }}
+                  <button type="button" onClick={() => { setAvatarFile(null); setAvatarPreview(avatarUrl); }}
                     className={`rounded-full border px-4 py-1.5 text-xs transition-colors duration-150 ${isLight ? 'border-slate-200 text-slate-600 hover:bg-slate-50' : 'border-white/10 text-[#9eabc4] hover:bg-white/5'}`}>
                     Cancel
                   </button>
@@ -331,26 +347,26 @@ export default function ProfileSettingsPage() {
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="country" className={labelClass}>{t('profile.country', 'Country')}</label>
-                    <input id="country" list="country-list" value={locationCountry} onChange={e => { setLocationCountry(e.target.value); setLocationCity(''); }} placeholder="e.g. Sudan, Egypt" autoComplete="country-name" className={`mt-2 ${inputClass}`} />
+                    <input id="country" list="country-list" value={locationCountry} onChange={e => { setLocationCountry(e.target.value); setLocationCity(''); }} placeholder={t('profile.country_placeholder', 'Start typing your country')} autoComplete="country-name" className={`mt-2 ${inputClass}`} />
                     <datalist id="country-list">{countryOptions.map(c => <option key={c} value={c} />)}</datalist>
                   </div>
                   <div>
                     <label htmlFor="city" className={labelClass}>{t('profile.city', 'City')}</label>
-                    <input id="city" list="city-list" value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder="e.g. Khartoum, Cairo" autoComplete="address-level2" className={`mt-2 ${inputClass}`} />
+                    <input id="city" list="city-list" value={locationCity} onChange={e => setLocationCity(e.target.value)} placeholder={t('profile.city_placeholder', 'Start typing your city')} autoComplete="address-level2" className={`mt-2 ${inputClass}`} />
                     <datalist id="city-list">{cityOptions.map(c => <option key={c} value={c} />)}</datalist>
                   </div>
                 </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor="major-field" className={labelClass}>{t('profile.major_field', 'Major / Field')}</label>
-                    <input id="major-field" list="major-list" value={majorField} onChange={e => setMajorField(e.target.value)} placeholder="e.g. Computer Science" className={`mt-2 ${inputClass}`} />
+                    <input id="major-field" list="major-list" value={majorField} onChange={e => setMajorField(e.target.value)} placeholder={t('profile.major_placeholder', 'Start typing your major')} className={`mt-2 ${inputClass}`} />
                     <datalist id="major-list">
                       {['Mechanical Engineering','Software Engineering','Electrical Engineering','Civil Engineering','Computer Science','Information Technology','Marketing','Finance','Entrepreneurship','Biotechnology','Environmental Science','Architecture','Psychology','Economics','Communications','Graphic Design','Industrial Design','Data Science','Product Management'].map(v => <option key={v} value={v} />)}
                     </datalist>
                   </div>
                   <div>
                     <label htmlFor="passion-sector" className={labelClass}>{t('profile.passion_sector', 'Passion / Sector')}</label>
-                    <input id="passion-sector" list="passion-list" value={passionSector} onChange={e => setPassionSector(e.target.value)} placeholder="e.g. Fintech, Robotics" className={`mt-2 ${inputClass}`} />
+                    <input id="passion-sector" list="passion-list" value={passionSector} onChange={e => setPassionSector(e.target.value)} placeholder={t('profile.passion_placeholder', 'Start typing your passion')} className={`mt-2 ${inputClass}`} />
                     <datalist id="passion-list">
                       {['Education','Healthcare','Agriculture','Fintech','Design','Robotics','Electronics','Renewable Energy','Architecture','AI & Machine Learning','Social Impact'].map(v => <option key={v} value={v} />)}
                     </datalist>

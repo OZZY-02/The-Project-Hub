@@ -1,3 +1,9 @@
+/**
+ * Seed content for the mentorship hub, shared by /mentorship and the homepage
+ * preview cards. Keep this the single source — the two used to hold separate
+ * copies of the same offerings and they drifted apart.
+ */
+
 export type MentorCategoryKey =
   | "resume_review"
   | "career_conversation"
@@ -6,7 +12,7 @@ export type MentorCategoryKey =
   | "course"
   | "workshop";
 
-export type MentorshipOfferingPreview = {
+export type MentorshipOffering = {
   id: string;
   title: string;
   description: string;
@@ -14,11 +20,21 @@ export type MentorshipOfferingPreview = {
   category: MentorCategoryKey;
   format: string;
   duration: string;
-  certified?: boolean;
+  certified: boolean;
   spots?: number;
 };
 
-export type MentorReviewPreview = {
+export type MentorProfile = {
+  id: string;
+  name: string;
+  bio: string;
+  location: string;
+  tags: string[];
+  categories: MentorCategoryKey[];
+  certified: boolean;
+};
+
+export type MentorReview = {
   id: string;
   author: string;
   role: string;
@@ -27,20 +43,28 @@ export type MentorReviewPreview = {
   quote: string;
 };
 
-export const CATEGORY_LABELS: Record<MentorCategoryKey, string> = {
-  resume_review: "Resume Reviews",
-  career_conversation: "Career Conversations",
-  interview_prep: "Interview Prep",
-  referral: "Referrals & Intros",
-  course: "Courses & Lessons",
-  workshop: "Workshops",
+/** Translation key + English fallback for each category. */
+export const CATEGORY_META: Record<MentorCategoryKey, { labelKey: string; fallback: string }> = {
+  resume_review: { labelKey: "mentorship.cat_resume", fallback: "Resume Reviews" },
+  career_conversation: { labelKey: "mentorship.cat_career", fallback: "Career Conversations" },
+  interview_prep: { labelKey: "mentorship.cat_interview", fallback: "Interview Prep" },
+  referral: { labelKey: "mentorship.cat_referral", fallback: "Referrals & Intros" },
+  course: { labelKey: "mentorship.cat_course", fallback: "Courses & Lessons" },
+  workshop: { labelKey: "mentorship.cat_workshop", fallback: "Workshops" },
 };
 
-export const PILOT_OFFERINGS: MentorshipOfferingPreview[] = [
+export const CATEGORY_KEYS = Object.keys(CATEGORY_META) as MentorCategoryKey[];
+
+/** English labels, for surfaces that render outside a translation context. */
+export const CATEGORY_LABELS: Record<MentorCategoryKey, string> = Object.fromEntries(
+  CATEGORY_KEYS.map((key) => [key, CATEGORY_META[key].fallback])
+) as Record<MentorCategoryKey, string>;
+
+export const MENTORSHIP_OFFERINGS: MentorshipOffering[] = [
   {
     id: "offer-1",
     title: "CV & Resume Polish",
-    description: "Line-by-line feedback on structure, impact bullets, and ATS readiness.",
+    description: "Line-by-line feedback on structure, impact bullets, and ATS readiness from a hiring manager.",
     mentorName: "Amina Hassan",
     category: "resume_review",
     format: "1:1 session",
@@ -51,55 +75,103 @@ export const PILOT_OFFERINGS: MentorshipOfferingPreview[] = [
   {
     id: "offer-2",
     title: "Career Path Mapping",
-    description: "Talk through your next move with someone who has done it.",
+    description: "Talk through your next move — internships, first role, or pivot — with someone who has done it.",
     mentorName: "Omar El-Tayeb",
     category: "career_conversation",
     format: "1:1 session",
     duration: "60 min",
+    certified: true,
+    spots: 6,
   },
   {
     id: "offer-3",
     title: "Technical Interview Prep",
-    description: "Mock interviews and feedback tailored to software engineering roles.",
+    description: "Mock interviews, system design basics, and feedback tailored to software engineering roles.",
     mentorName: "Yasmin Abdelrahman",
     category: "interview_prep",
     format: "Group cohort",
     duration: "4 weeks",
+    certified: true,
+    spots: 12,
   },
   {
     id: "offer-4",
     title: "Warm Referral Introduction",
-    description: "Get connected to hiring teams through a trusted diaspora mentor.",
+    description: "Get connected to hiring teams or collaborators through a trusted diaspora mentor.",
     mentorName: "Khalid Ibrahim",
     category: "referral",
     format: "Intro request",
     duration: "Async",
+    certified: true,
   },
   {
     id: "offer-5",
     title: "Product Management Foundations",
-    description: "Lessons on discovery, roadmaps, and stakeholder communication.",
+    description: "Self-paced lessons on discovery, roadmaps, and stakeholder communication for aspiring PMs.",
     mentorName: "Nadia Farouk",
     category: "course",
     format: "Mini-course",
     duration: "6 lessons",
+    certified: true,
   },
   {
     id: "offer-6",
     title: "LinkedIn & Personal Brand Workshop",
-    description: "Build a profile that gets noticed with outreach templates included.",
+    description: "Build a profile that gets noticed — headline, story, and outreach templates included.",
     mentorName: "Samir Noor",
     category: "workshop",
     format: "Live workshop",
     duration: "90 min",
+    certified: true,
+    spots: 20,
   },
 ];
 
-export const MENTOR_REVIEWS: MentorReviewPreview[] = [
+/** Shown until enough real profiles have opted in as mentors. */
+export const SEED_MENTORS: MentorProfile[] = [
+  {
+    id: "mentor-1",
+    name: "Amina Hassan",
+    bio: "Engineering manager at a fintech in London. Helps makers land their first tech roles.",
+    location: "London, UK",
+    tags: ["Software", "Hiring", "CV Reviews"],
+    categories: ["resume_review", "career_conversation", "referral"],
+    certified: true,
+  },
+  {
+    id: "mentor-2",
+    name: "Omar El-Tayeb",
+    bio: "Product lead with 10+ years across Cairo and Dubai. Passionate about Sudanese talent abroad.",
+    location: "Dubai, UAE",
+    tags: ["Product", "Strategy", "Career Growth"],
+    categories: ["career_conversation", "interview_prep", "course"],
+    certified: true,
+  },
+  {
+    id: "mentor-3",
+    name: "Yasmin Abdelrahman",
+    bio: "Senior engineer and interview coach. Runs mock loops for backend and full-stack roles.",
+    location: "Berlin, Germany",
+    tags: ["Engineering", "Interviews", "System Design"],
+    categories: ["interview_prep", "workshop", "course"],
+    certified: true,
+  },
+  {
+    id: "mentor-4",
+    name: "Khalid Ibrahim",
+    bio: "Startup founder and diaspora connector. Opens doors to collaborators, sponsors, and hiring teams.",
+    location: "Toronto, Canada",
+    tags: ["Startups", "Referrals", "Networking"],
+    categories: ["referral", "career_conversation"],
+    certified: true,
+  },
+];
+
+export const MENTOR_REVIEWS: MentorReview[] = [
   {
     id: "rev-1",
     author: "Huda A.",
-    role: "CS student, Cairo",
+    role: "CS student",
     offeringTitle: "CV & Resume Polish",
     rating: 5,
     quote: "My CV went from generic to interview-ready in one session. Clear, kind, and practical.",
@@ -146,6 +218,10 @@ export const MENTOR_REVIEWS: MentorReviewPreview[] = [
   },
 ];
 
+export type HomeMentorshipCard =
+  | { type: "offering"; data: MentorshipOffering }
+  | { type: "review"; data: MentorReview };
+
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -155,11 +231,13 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
-export function pickHomeMentorshipCards(): Array<
-  | { type: "offering"; data: MentorshipOfferingPreview }
-  | { type: "review"; data: MentorReviewPreview }
-> {
-  const offerings = shuffle(PILOT_OFFERINGS).slice(0, 2);
+/**
+ * Two offerings and two reviews in random order for the homepage preview grid.
+ * Call this from an effect, never during render — the randomness would not
+ * match between the server and client pass.
+ */
+export function pickHomeMentorshipCards(): HomeMentorshipCard[] {
+  const offerings = shuffle(MENTORSHIP_OFFERINGS).slice(0, 2);
   const reviews = shuffle(MENTOR_REVIEWS).slice(0, 2);
   return shuffle([
     ...offerings.map((data) => ({ type: "offering" as const, data })),
