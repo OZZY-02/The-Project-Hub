@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslation } from "../../lib/i18n";
 import { useTheme } from "../../lib/theme";
 import supabase from "../../lib/supabaseClient";
+import { isProfileComplete } from "../../lib/utils";
 import {
   CATEGORY_KEYS,
   CATEGORY_META,
@@ -117,6 +118,8 @@ export default function MentorshipPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
   const [signedIn, setSignedIn] = useState(false);
+  /** Null until checked, so the "build your portfolio" nudge never flashes. */
+  const [portfolioReady, setPortfolioReady] = useState<boolean | null>(null);
 
   /* ── Midnight & Amber palette — trialled on this page only ──
      Amber is accent-only: links, focus rings, ratings. Never a CTA background. */
@@ -149,7 +152,21 @@ export default function MentorshipPage() {
         const user = ud?.user ?? null;
         if (mounted) setSignedIn(Boolean(user));
 
-        if (user) {
+        if (!user) {
+          setPortfolioReady(false);
+        } else {
+          // Hide the portfolio nudge once they have actually built one.
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("first_name,location_country,location_city,major_field,passion_sector")
+              .eq("id", user.id)
+              .single();
+            if (mounted) setPortfolioReady(isProfileComplete(profile));
+          } catch {
+            if (mounted) setPortfolioReady(false);
+          }
+
           // Show "Requested" on mentors this person has already contacted.
           try {
             const { data: reqs } = await supabase
@@ -365,22 +382,27 @@ export default function MentorshipPage() {
               </ul>
             </div>
 
-            <div className={`rounded-2xl border p-5 ${cardCls}`}>
-              <div className="flex items-center gap-2">
-                <Sparkles size={15} className={accentCls} />
-                <p className={`text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
-                  {t("mentorship.tip_title", "Get matched faster")}
+            {/* Only shown to people who have not built a portfolio yet.
+                `=== false` rather than `!portfolioReady` so the nudge stays
+                hidden while the check is still in flight. */}
+            {portfolioReady === false && (
+              <div className={`rounded-2xl border p-5 ${cardCls}`}>
+                <div className="flex items-center gap-2">
+                  <Sparkles size={15} className={accentCls} />
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
+                    {t("mentorship.tip_title", "Get matched faster")}
+                  </p>
+                </div>
+                <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
+                  {t("mentorship.tip_body", "Complete your portfolio so mentors can see your skills, projects, and goals before your first session.")}
                 </p>
+                {/* Goes to the portfolio builder (skills + projects), not account settings. */}
+                <Link href="/profile/create"
+                  className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${primaryBtn} ${focusRing}`}>
+                  {t("mentorship.cta_profile", "Build My Portfolio")} <ArrowRight size={15} className="rtl:rotate-180" />
+                </Link>
               </div>
-              <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
-                {t("mentorship.tip_body", "Complete your portfolio so mentors can see your skills, projects, and goals before your first session.")}
-              </p>
-              {/* Goes to the portfolio builder (skills + projects), not account settings. */}
-              <Link href="/profile/create"
-                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${primaryBtn} ${focusRing}`}>
-                {t("mentorship.cta_profile", "Build Your Profile")} <ArrowRight size={15} className="rtl:rotate-180" />
-              </Link>
-            </div>
+            )}
           </aside>
 
           <div className="min-w-0 flex-1">
