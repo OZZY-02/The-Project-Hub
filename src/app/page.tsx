@@ -572,12 +572,12 @@ export default function HomePage() {
                         <p className={`mt-2 text-sm font-semibold leading-snug ${titleClass}`}>{card.data.title}</p>
                         <p className={`mt-1 line-clamp-2 text-xs leading-relaxed ${secondaryTextClass}`}>{card.data.description}</p>
                         <p className={`mt-3 text-xs ${mutedTextClass}`}>
-                          {card.data.mentorName} · {card.data.duration}
+                          {card.data.recommendedBy} · {card.data.provider}
                         </p>
                       </Link>
                     ) : (
                       <div key={card.data.id} className={mentorCardClass}>
-                        <div className="flex items-center gap-0.5 text-[#fbbf24]"  /* pinned: amber-* is now the Midnight & Amber accent scale */ aria-label={`${card.data.rating} out of 5 stars`}>
+                        <div className="flex items-center gap-0.5 text-[#fbbf24]" aria-label={`${card.data.rating} out of 5 stars`}>
                           {Array.from({ length: card.data.rating }).map((_, i) => (
                             <Star key={i} size={12} fill="currentColor" aria-hidden="true" />
                           ))}
