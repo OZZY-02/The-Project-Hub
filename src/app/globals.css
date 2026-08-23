@@ -1,5 +1,47 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Midnight & Amber palette (see project-hub-color-palette.md).
+   Registered as Tailwind v4 theme tokens, so `bg-midnight-900`,
+   `text-amber-600`, `border-ivory-200` etc. become real utilities.
+   Currently applied on /mentorship only — defining the scales here is
+   inert everywhere else until a component actually uses them.
+   ───────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Midnight — primary surfaces, headings, CTAs */
+  --color-midnight-50:  #F1F3F7;
+  --color-midnight-100: #DEE2EC;
+  --color-midnight-200: #B9C1D3;
+  --color-midnight-300: #8992AF;
+  --color-midnight-400: #5D6885;
+  --color-midnight-500: #3D4763;
+  --color-midnight-600: #2A3450;
+  --color-midnight-700: #1B233A;
+  --color-midnight-800: #131A2B;
+  --color-midnight-900: #0B1220;
+  --color-midnight-950: #06090F;
+
+  /* Amber — accent only. Never a CTA background. */
+  --color-amber-50:  #FBF6ED;
+  --color-amber-100: #F6EAD1;
+  --color-amber-200: #EDD3A5;
+  --color-amber-300: #E2BB84;
+  --color-amber-400: #D4A574;
+  --color-amber-500: #C08A55;
+  --color-amber-600: #A2703E;
+  --color-amber-700: #7F5731;
+  --color-amber-800: #5B3E24;
+  --color-amber-900: #3D2A18;
+
+  /* Ivory — warm neutral surfaces and borders */
+  --color-ivory-50:  #FDFCF8;
+  --color-ivory-100: #F5F1E8;
+  --color-ivory-200: #EAE3D0;
+  --color-ivory-300: #D6CCB1;
+  --color-ivory-400: #B8AC8B;
+  --color-ivory-500: #948872;
+}
+
 :root {
   --background: #050816;
   --foreground: #f5f7fb;

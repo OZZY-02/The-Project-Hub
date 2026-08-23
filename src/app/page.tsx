@@ -577,7 +577,7 @@ export default function HomePage() {
                       </Link>
                     ) : (
                       <div key={card.data.id} className={mentorCardClass}>
-                        <div className="flex items-center gap-0.5 text-amber-400" aria-label={`${card.data.rating} out of 5 stars`}>
+                        <div className="flex items-center gap-0.5 text-[#fbbf24]"  /* pinned: amber-* is now the Midnight & Amber accent scale */ aria-label={`${card.data.rating} out of 5 stars`}>
                           {Array.from({ length: card.data.rating }).map((_, i) => (
                             <Star key={i} size={12} fill="currentColor" aria-hidden="true" />
                           ))}
