@@ -12,16 +12,28 @@ export type MentorCategoryKey =
   | "course"
   | "workshop";
 
+/**
+ * An external course, program, or lesson that a mentor has taken and vouches
+ * for — not something booked through the platform. "Access" links straight out
+ * to the provider; the value we add is the mentor's rating and review.
+ */
 export type MentorshipOffering = {
   id: string;
   title: string;
+  /** Where it lives — edX, Coursera, freeCodeCamp, … */
+  provider: string;
+  /** External link opened by the Access button. */
+  url: string;
   description: string;
-  mentorName: string;
   category: MentorCategoryKey;
   format: string;
   duration: string;
-  certified: boolean;
-  spots?: number;
+  /** Free / paid / audit-free, shown so nobody is surprised by a paywall. */
+  cost: string;
+  /** The mentor who recommends it, and what they thought. */
+  recommendedBy: string;
+  rating: number;
+  review: string;
 };
 
 export type MentorProfile = {
@@ -62,68 +74,88 @@ export const CATEGORY_LABELS: Record<MentorCategoryKey, string> = Object.fromEnt
 
 export const MENTORSHIP_OFFERINGS: MentorshipOffering[] = [
   {
-    id: "offer-1",
-    title: "CV & Resume Polish",
-    description: "Line-by-line feedback on structure, impact bullets, and ATS readiness from a hiring manager.",
-    mentorName: "Amina Hassan",
-    category: "resume_review",
-    format: "1:1 session",
-    duration: "45 min",
-    certified: true,
-    spots: 8,
-  },
-  {
-    id: "offer-2",
-    title: "Career Path Mapping",
-    description: "Talk through your next move — internships, first role, or pivot — with someone who has done it.",
-    mentorName: "Omar El-Tayeb",
-    category: "career_conversation",
-    format: "1:1 session",
-    duration: "60 min",
-    certified: true,
-    spots: 6,
-  },
-  {
-    id: "offer-3",
-    title: "Technical Interview Prep",
-    description: "Mock interviews, system design basics, and feedback tailored to software engineering roles.",
-    mentorName: "Yasmin Abdelrahman",
-    category: "interview_prep",
-    format: "Group cohort",
-    duration: "4 weeks",
-    certified: true,
-    spots: 12,
-  },
-  {
-    id: "offer-4",
-    title: "Warm Referral Introduction",
-    description: "Get connected to hiring teams or collaborators through a trusted diaspora mentor.",
-    mentorName: "Khalid Ibrahim",
-    category: "referral",
-    format: "Intro request",
-    duration: "Async",
-    certified: true,
-  },
-  {
-    id: "offer-5",
-    title: "Product Management Foundations",
-    description: "Self-paced lessons on discovery, roadmaps, and stakeholder communication for aspiring PMs.",
-    mentorName: "Nadia Farouk",
+    id: "offer-solidworks",
+    title: "SolidWorks CAD Fundamentals",
+    provider: "edX · Dassault Systèmes",
+    url: "https://www.edx.org/learn/engineering/dassault-systemes-solidworks-solidworks-cad-fundamentals",
+    description: "Part modelling, assemblies, and drawings in SolidWorks, from first sketch to finished part.",
     category: "course",
-    format: "Mini-course",
-    duration: "6 lessons",
-    certified: true,
+    format: "Self-paced",
+    duration: "6 weeks",
+    cost: "Free to audit",
+    recommendedBy: "Yasmin Abdelrahman",
+    rating: 5,
+    review: "The one I point every mechanical grad to. Do the assignments — the certificate matters far less than the parts you end up with in your portfolio.",
   },
   {
-    id: "offer-6",
-    title: "LinkedIn & Personal Brand Workshop",
-    description: "Build a profile that gets noticed — headline, story, and outreach templates included.",
-    mentorName: "Samir Noor",
-    category: "workshop",
-    format: "Live workshop",
-    duration: "90 min",
-    certified: true,
-    spots: 20,
+    id: "offer-google-ux",
+    title: "Google UX Design Certificate",
+    provider: "Coursera · Google",
+    url: "https://www.coursera.org/professional-certificates/google-ux-design",
+    description: "Seven courses covering research, wireframing, prototyping, and building a portfolio in Figma.",
+    category: "course",
+    format: "Self-paced",
+    duration: "6 months",
+    cost: "Paid · financial aid available",
+    recommendedBy: "Nadia Farouk",
+    rating: 4,
+    review: "Genuinely good on process and it hands you three portfolio pieces. Apply for financial aid rather than paying full price — it is nearly always approved.",
+  },
+  {
+    id: "offer-fcc-web",
+    title: "Responsive Web Design",
+    provider: "freeCodeCamp",
+    url: "https://www.freecodecamp.org/learn/2022/responsive-web-design/",
+    description: "HTML and CSS from scratch through projects, ending in a certification.",
+    category: "course",
+    format: "Self-paced",
+    duration: "~300 hours",
+    cost: "Free",
+    recommendedBy: "Amina Hassan",
+    rating: 5,
+    review: "Completely free with no catch, and project-based rather than video-based. Best possible starting point if you have never written a line of code.",
+  },
+  {
+    id: "offer-cs50",
+    title: "CS50x: Introduction to Computer Science",
+    provider: "Harvard",
+    url: "https://cs50.harvard.edu/x/",
+    description: "Harvard's introduction to computer science — C, Python, SQL, and web fundamentals.",
+    category: "interview_prep",
+    format: "Self-paced",
+    duration: "11 weeks",
+    cost: "Free",
+    recommendedBy: "Yasmin Abdelrahman",
+    rating: 5,
+    review: "Hard, and worth it. The problem sets are the closest thing to real interview pressure you will find for free.",
+  },
+  {
+    id: "offer-ml",
+    title: "Machine Learning Specialization",
+    provider: "Coursera · DeepLearning.AI",
+    url: "https://www.coursera.org/specializations/machine-learning-introduction",
+    description: "Andrew Ng's rebuilt ML series: supervised learning, neural networks, and practical advice.",
+    category: "course",
+    format: "Self-paced",
+    duration: "2 months",
+    cost: "Paid · audit free",
+    recommendedBy: "Omar El-Tayeb",
+    rating: 4,
+    review: "Still the clearest explanation of the fundamentals anywhere. Audit it free if the certificate is not the point for you.",
+  },
+  {
+    id: "offer-financial-markets",
+    title: "Financial Markets",
+    provider: "Coursera · Yale",
+    url: "https://www.coursera.org/learn/financial-markets-global",
+    description: "Robert Shiller on risk, insurance, and how financial institutions actually behave.",
+    category: "career_conversation",
+    format: "Self-paced",
+    duration: "7 weeks",
+    cost: "Free to audit",
+    recommendedBy: "Khalid Ibrahim",
+    rating: 4,
+    review: "More about judgement than mechanics. Useful before any fintech interview, and it makes you better at reading the news.",
   },
 ];
 

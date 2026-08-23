@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslation } from "../../lib/i18n";
 import { useTheme } from "../../lib/theme";
 import supabase from "../../lib/supabaseClient";
-import { getProfileBuilderHref } from "../../lib/utils";
+import { isProfileComplete } from "../../lib/utils";
 import {
   CATEGORY_KEYS,
   CATEGORY_META,
@@ -13,26 +13,20 @@ import {
   SEED_MENTORS,
   type MentorCategoryKey,
   type MentorProfile,
+  type MentorshipOffering,
 } from "../../lib/mentorship-data";
 import {
-  ArrowLeft,
-  ArrowRight,
-  BadgeCheck,
-  BookOpen,
-  BookmarkCheck,
-  BookmarkPlus,
-  FileText,
-  GraduationCap,
-  Loader2,
-  MapPin,
-  MessageCircle,
-  Mic,
-  Presentation,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  UserPlus,
-  Users,
+  loadSaved,
+  savedIdSet,
+  toSavedMentor,
+  toSavedOffering,
+  toggleSaved,
+  type SavedItem,
+} from "../../lib/mentorship-saved";
+import {
+  ArrowLeft, ArrowRight, BadgeCheck, BookOpen, BookmarkCheck, BookmarkPlus,
+  Check, ExternalLink, FileText, GraduationCap, Loader2, MapPin, MessageCircle,
+  Mic, Presentation, Search, ShieldCheck, Sparkles, Star, UserPlus, X,
 } from "lucide-react";
 
 type MentorCategory = "all" | MentorCategoryKey;
@@ -46,6 +40,10 @@ const CATEGORY_ICONS: Record<MentorCategoryKey, React.ReactNode> = {
   course: <BookOpen size={14} />,
   workshop: <Presentation size={14} />,
 };
+
+/** Matches the CHECK constraint on mentor_requests.reason. */
+const MIN_REASON_LENGTH = 40;
+const MAX_REASON_LENGTH = 600;
 
 type ProfileRow = {
   id: string;
@@ -61,42 +59,41 @@ type ProfileRow = {
 function MentorAvatar({ name, isLight }: { name: string; isLight: boolean }) {
   const initials = name.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase() || "?";
   return (
-    <div
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white ${
-        isLight ? "from-[#2258d1] to-[#3d95ff]" : "from-[#3d95ff] to-[#2258d1]"
-      }`}
-    >
+    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white ${
+      isLight ? "from-midnight-800 to-midnight-600" : "from-midnight-600 to-midnight-400"
+    }`}>
       {initials}
     </div>
   );
 }
 
-function Chip({ label, isLight }: { label: string; isLight: boolean }) {
+/**
+ * Metadata as plain text rather than pills.
+ *
+ * Every attribute used to be a bordered bubble, which made static information
+ * look identical to the filter buttons and the save button. The rule now is:
+ * rounded pill = clickable filter, squared button = action, plain text = data.
+ */
+function MetaLine({ items, className }: { items: string[]; className: string }) {
+  if (items.length === 0) return null;
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs ${
-      isLight ? "border-slate-900/10 bg-white text-slate-600" : "border-white/10 bg-white/5 text-[#c8d8f0]"
-    }`}>
-      {label}
-    </span>
+    <p className={`text-xs ${className}`}>
+      {items.map((item, i) => (
+        <React.Fragment key={item}>
+          {i > 0 && <span aria-hidden="true" className="mx-1.5 opacity-40">·</span>}
+          {item}
+        </React.Fragment>
+      ))}
+    </p>
   );
 }
 
-function CategoryBadge({
-  category,
-  isLight,
-  t,
-}: {
-  category: MentorCategoryKey;
-  isLight: boolean;
-  t: (k: string, f: string) => string;
-}) {
-  const cfg = CATEGORY_META[category];
+function RatingStars({ rating, label }: { rating: number; label: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
-      isLight ? "border-[#2258d1]/20 bg-[#2258d1]/8 text-[#2258d1]" : "border-[#8fb7ff]/20 bg-[#8fb7ff]/8 text-[#8fb7ff]"
-    }`}>
-      {CATEGORY_ICONS[category]}
-      {t(cfg.labelKey, cfg.fallback)}
+    <span className="inline-flex items-center gap-0.5 text-amber-500" aria-label={`${label}: ${rating} out of 5`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star key={i} size={12} fill={i < rating ? "currentColor" : "none"} strokeWidth={1.5} aria-hidden="true" />
+      ))}
     </span>
   );
 }
@@ -109,43 +106,77 @@ export default function MentorshipPage() {
 
   const [loading, setLoading] = useState(true);
   const [mentors, setMentors] = useState<MentorProfile[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [currentProfile, setCurrentProfile] = useState<ProfileRow | null>(null);
   const [activeCategory, setActiveCategory] = useState<MentorCategory>("all");
   const [activeTab, setActiveTab] = useState<"mentors" | "offerings">("mentors");
   const [searchQuery, setSearchQuery] = useState("");
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<SavedItem[]>([]);
 
-  const savedStorageKey = "mentorship_saved";
-  const cardCls = isLight ? "border-slate-900/8 bg-white shadow-sm" : "border-white/8 bg-white/3";
-  const titleCls = isLight ? "text-slate-950" : "text-[#f5f7fb]";
-  const mutedCls = isLight ? "text-slate-500" : "text-[#9eabc4]";
-  const dimCls = isLight ? "text-slate-400" : "text-[#6f7e9d]";
+  // Session requests
+  const [requestMentor, setRequestMentor] = useState<MentorProfile | null>(null);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  const [signedIn, setSignedIn] = useState(false);
+  /** Null until checked, so the "build your portfolio" nudge never flashes. */
+  const [portfolioReady, setPortfolioReady] = useState<boolean | null>(null);
+
+  /* ── Midnight & Amber palette — trialled on this page only ──
+     Amber is accent-only: links, focus rings, ratings. Never a CTA background. */
+  const shellCls   = isLight ? "bg-ivory-100 text-midnight-700" : "bg-midnight-950 text-midnight-100";
+  const cardCls    = isLight ? "border-ivory-300 bg-ivory-50 shadow-sm" : "border-midnight-700 bg-midnight-800";
+  const cardHover  = isLight ? "hover:border-ivory-400 hover:shadow-md" : "hover:border-midnight-600";
+  const titleCls   = isLight ? "text-midnight-900" : "text-ivory-50";
+  const mutedCls   = isLight ? "text-slate-500" : "text-midnight-300";
+  const dimCls     = isLight ? "text-slate-400" : "text-midnight-400";
+  const accentCls  = isLight ? "text-amber-600" : "text-amber-400";
+  const primaryBtn = isLight ? "bg-midnight-900 text-white hover:bg-midnight-700" : "bg-ivory-50 text-midnight-900 hover:bg-ivory-200";
+  const outlineBtn = isLight ? "border-ivory-300 text-midnight-700 hover:border-ivory-400" : "border-midnight-700 text-midnight-200 hover:border-midnight-600";
+  const savedBtn   = isLight ? "border-amber-200 bg-amber-50 text-amber-800" : "border-amber-700/50 bg-amber-900/30 text-amber-200";
+  const focusRing  = "focus:outline-none focus:ring-2 focus:ring-amber-400";
+  const inputCls   = isLight
+    ? "border-ivory-300 bg-ivory-50 text-midnight-900 placeholder-slate-400"
+    : "border-midnight-700 bg-midnight-800 text-ivory-50 placeholder-midnight-400";
+
   const categories: MentorCategory[] = ["all", ...CATEGORY_KEYS];
+  const savedIds = useMemo(() => savedIdSet(saved), [saved]);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
-      try {
-        const raw = localStorage.getItem(savedStorageKey);
-        if (raw) setSavedIds(new Set(JSON.parse(raw) as string[]));
-      } catch {}
+      if (mounted) setSaved(loadSaved());
 
       try {
         const { data: ud } = await supabase.auth.getUser();
-        const user = ud?.user;
-        if (mounted) setCurrentUserId(user?.id ?? null);
-        if (user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id, first_name, last_name, location_city, location_country, major_field, passion_sector, bio")
-            .eq("id", user.id)
-            .single();
-          if (mounted) setCurrentProfile(profile || null);
-        } else if (mounted) {
-          setCurrentProfile(null);
+        const user = ud?.user ?? null;
+        if (mounted) setSignedIn(Boolean(user));
+
+        if (!user) {
+          setPortfolioReady(false);
+        } else {
+          // Hide the portfolio nudge once they have actually built one.
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("first_name,location_country,location_city,major_field,passion_sector")
+              .eq("id", user.id)
+              .single();
+            if (mounted) setPortfolioReady(isProfileComplete(profile));
+          } catch {
+            if (mounted) setPortfolioReady(false);
+          }
+
+          // Show "Requested" on mentors this person has already contacted.
+          try {
+            const { data: reqs } = await supabase
+              .from("mentor_requests").select("mentor_id").eq("requester_id", user.id);
+            if (mounted && reqs) setRequestedIds(new Set(reqs.map(r => r.mentor_id as string)));
+          } catch {
+            /* table not migrated yet — requests simply show as unsent */
+          }
         }
+
         let query = supabase
           .from("profiles")
           .select("id, first_name, last_name, location_city, location_country, major_field, passion_sector, bio, is_mentor")
@@ -153,6 +184,7 @@ export default function MentorshipPage() {
           .limit(20);
         if (user) query = query.neq("id", user.id);
         const { data: rows } = await query;
+
         const mapped = ((rows || []) as ProfileRow[]).map(row => {
           const tags: string[] = [];
           if (row.major_field) tags.push(row.major_field);
@@ -183,14 +215,58 @@ export default function MentorshipPage() {
     return () => { mounted = false; };
   }, [t]);
 
-  const toggleSave = (id: string) => {
-    setSavedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try { localStorage.setItem(savedStorageKey, JSON.stringify(Array.from(next))); } catch {}
-      return next;
-    });
+  const handleToggleSave = (item: SavedItem) => setSaved(toggleSaved(item));
+
+  const openRequest = (mentor: MentorProfile) => {
+    setRequestMentor(mentor);
+    setReason("");
+    setRequestError(null);
+  };
+
+  const submitRequest = async () => {
+    if (!requestMentor) return;
+    const trimmed = reason.trim();
+    if (trimmed.length < MIN_REASON_LENGTH) return;
+
+    setSubmitting(true);
+    setRequestError(null);
+    try {
+      const { data: ud } = await supabase.auth.getUser();
+      const user = ud?.user;
+      if (!user) {
+        setRequestError(t("mentorship.request_signin", "Please sign in to request a session."));
+        return;
+      }
+
+      const { error } = await supabase.from("mentor_requests").insert({
+        requester_id: user.id,
+        mentor_id: requestMentor.id,
+        mentor_name: requestMentor.name,
+        reason: trimmed,
+      });
+
+      if (error) {
+        // 23505 = unique violation: one open request per mentor per person.
+        const duplicate = error.code === "23505";
+        setRequestError(duplicate
+          ? t("mentorship.request_duplicate", "You already have an open request with this mentor.")
+          : error.message);
+        if (duplicate) setRequestedIds(prev => new Set(prev).add(requestMentor.id));
+        return;
+      }
+
+      setRequestedIds(prev => new Set(prev).add(requestMentor.id));
+      setRequestMentor(null);
+      try {
+        window.dispatchEvent(new CustomEvent("app:toast", {
+          detail: { message: t("mentorship.request_sent", "Request sent.") },
+        }));
+      } catch { /* ignore */ }
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : t("mentorship.request_failed", "Could not send the request."));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const filteredMentors = useMemo(() => {
@@ -206,66 +282,90 @@ export default function MentorshipPage() {
     const q = searchQuery.toLowerCase();
     return MENTORSHIP_OFFERINGS.filter(o => {
       if (activeCategory !== "all" && o.category !== activeCategory) return false;
-      if (q && !`${o.title} ${o.description} ${o.mentorName}`.toLowerCase().includes(q)) return false;
+      if (q && !`${o.title} ${o.description} ${o.provider} ${o.recommendedBy}`.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [activeCategory, searchQuery]);
 
-  const profileBuilderHref = getProfileBuilderHref(currentUserId, currentProfile);
+  const reasonLength = reason.trim().length;
+  const reasonValid = reasonLength >= MIN_REASON_LENGTH;
 
   return (
-    <div dir={dir} className={`home-shell min-h-screen ${isLight ? "home-shell-light text-slate-950" : "home-shell-dark text-[#f5f7fb]"}`}>
+    <div dir={dir} className={`min-h-screen ${shellCls}`}>
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
-        <Link href="/"
-          className={`mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
-            isLight ? "border-slate-900/10 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900" : "border-white/8 bg-white/4 text-[#9eabc4] hover:border-white/15 hover:text-[#f5f7fb]"
-          }`}>
-          <ArrowLeft size={15} /> {t("mentorship.back_home", "Back to home")}
-        </Link>
 
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link href="/"
+            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150 ${outlineBtn} ${focusRing}`}>
+            <ArrowLeft size={15} className="rtl:rotate-180" /> {t("mentorship.back_home", "Back to home")}
+          </Link>
+
+          <Link href="/mentorship/saved"
+            className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+              saved.length > 0 ? savedBtn : outlineBtn
+            } ${focusRing}`}>
+            <BookmarkCheck size={15} />
+            {saved.length > 0
+              ? t("mentorship.saved_count", "{count} saved").replace("{count}", String(saved.length))
+              : t("mentorship.view_saved", "Saved")}
+          </Link>
+        </div>
+
+        {/* Page title. "Mentorship Hub" leads; the old h1 is now the standfirst. */}
         <div className="mb-8">
-          <p className={`text-xs font-semibold uppercase tracking-[0.35em] ${isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"}`}>
+          <h1 className={`font-display text-3xl font-bold tracking-tight sm:text-4xl ${titleCls}`}>
             {t("mentorship.kicker", "Mentorship Hub")}
-          </p>
-          <h1 className={`mt-2 font-display text-2xl font-bold sm:text-3xl ${titleCls}`}>
-            {t("mentorship.title", "Find mentors, lessons, and career support")}
           </h1>
-          <p className={`mt-2 max-w-2xl text-sm leading-relaxed ${mutedCls}`}>
+          <p className={`mt-2 max-w-2xl text-lg font-medium leading-snug sm:text-xl ${isLight ? "text-midnight-700" : "text-midnight-100"}`}>
+            {t("mentorship.title", "Find mentors, lessons, and career support")}
+          </p>
+          <p className={`mt-3 max-w-2xl text-sm leading-relaxed ${mutedCls}`}>
             {t("mentorship.subtitle", "Connect with certified Sudanese professionals for resume reviews, career conversations, interview prep, referrals, and guided courses.")}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {[t("mentorship.badge_1", "Certified mentors"), t("mentorship.badge_2", "Early access"), t("mentorship.badge_3", "Arabic + English")].map(b => (
-              <span key={b} className={`rounded-full border px-3 py-1 text-xs font-medium ${isLight ? "border-slate-900/10 bg-white text-slate-600" : "border-white/10 bg-white/5 text-[#9eabc4]"}`}>{b}</span>
-            ))}
+            {/* The one badge that carries meaning. Everything else here is text. */}
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+              isLight ? "border-emerald-500/25 bg-emerald-50 text-emerald-700" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-400"
+            }`}>
+              <BadgeCheck size={13} /> {t("mentorship.certified_badge", "Certified")}
+            </span>
+            <MetaLine className={dimCls}
+              items={[t("mentorship.badge_2", "Early access"), t("mentorship.badge_3", "Arabic + English")]} />
           </div>
         </div>
 
-        <div className="mb-6 flex flex-wrap gap-2">
-          {categories.map(cat => {
-            const active = activeCategory === cat;
-            const label = cat === "all"
-              ? t("mentorship.cat_all", "All")
-              : t(CATEGORY_META[cat].labelKey, CATEGORY_META[cat].fallback);
-            return (
-              <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  active
-                    ? isLight ? "border-[#2258d1] bg-[#2258d1] text-white" : "border-[#8fb7ff] bg-[#8fb7ff] text-[#09111f]"
-                    : isLight ? "border-slate-900/10 bg-white text-slate-600 hover:border-slate-300" : "border-white/8 bg-white/4 text-[#9eabc4] hover:border-white/15"
-                }`}>
-                {cat !== "all" && CATEGORY_ICONS[cat]}
-                {label}
-              </button>
-            );
-          })}
+        {/* Filters. Pills are round because they are the clickable control here. */}
+        <div className="mb-6">
+          <p className={`mb-2 text-xs font-semibold uppercase tracking-wider ${dimCls}`}>
+            {t("mentorship.filter_label", "Filter by")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {categories.map(cat => {
+              const active = activeCategory === cat;
+              const label = cat === "all"
+                ? t("mentorship.cat_all", "All")
+                : t(CATEGORY_META[cat].labelKey, CATEGORY_META[cat].fallback);
+              return (
+                <button key={cat} type="button" onClick={() => setActiveCategory(cat)} aria-pressed={active}
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-150 ${
+                    active
+                      ? isLight ? "border-midnight-900 bg-midnight-900 text-white" : "border-ivory-50 bg-ivory-50 text-midnight-900"
+                      : isLight ? "border-ivory-300 bg-ivory-50 text-midnight-700 hover:border-amber-400" : "border-midnight-700 bg-midnight-800 text-midnight-200 hover:border-amber-400"
+                  } ${focusRing}`}>
+                  {cat !== "all" && CATEGORY_ICONS[cat]}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <aside className="w-full space-y-4 lg:w-[280px] lg:shrink-0">
             <div className={`rounded-2xl border p-5 ${cardCls}`}>
               <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className={isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"} />
-                <p className={`text-xs font-semibold uppercase tracking-wider ${isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"}`}>
+                <ShieldCheck size={16} className={accentCls} />
+                <p className={`text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
                   {t("mentorship.certified_title", "Certified mentors")}
                 </p>
               </div>
@@ -275,50 +375,48 @@ export default function MentorshipPage() {
               <ul className="mt-4 space-y-2">
                 {CATEGORY_KEYS.map((key) => (
                   <li key={key} className={`flex items-center gap-2 text-xs ${mutedCls}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${isLight ? "bg-[#2258d1]" : "bg-[#8fb7ff]"}`} />
+                    <span className={`h-1.5 w-1.5 rounded-full ${isLight ? "bg-amber-500" : "bg-amber-400"}`} />
                     {t(CATEGORY_META[key].labelKey, CATEGORY_META[key].fallback)}
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className={`rounded-2xl border p-5 ${cardCls}`}>
-              <div className="flex items-center gap-2">
-                <Sparkles size={15} className={isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"} />
-                <p className={`text-xs font-semibold uppercase tracking-wider ${isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"}`}>
-                  {t("mentorship.tip_title", "Get matched faster")}
+            {/* Only shown to people who have not built a portfolio yet.
+                `=== false` rather than `!portfolioReady` so the nudge stays
+                hidden while the check is still in flight. */}
+            {portfolioReady === false && (
+              <div className={`rounded-2xl border p-5 ${cardCls}`}>
+                <div className="flex items-center gap-2">
+                  <Sparkles size={15} className={accentCls} />
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
+                    {t("mentorship.tip_title", "Get matched faster")}
+                  </p>
+                </div>
+                <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
+                  {t("mentorship.tip_body", "Complete your portfolio so mentors can see your skills, projects, and goals before your first session.")}
                 </p>
+                {/* Goes to the portfolio builder (skills + projects), not account settings. */}
+                <Link href="/profile/create"
+                  className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${primaryBtn} ${focusRing}`}>
+                  {t("mentorship.cta_profile", "Build My Portfolio")} <ArrowRight size={15} className="rtl:rotate-180" />
+                </Link>
               </div>
-              <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
-                {t("mentorship.tip_body", "Complete your portfolio so mentors can see your skills, projects, and goals before your first session.")}
-              </p>
-              <Link href={profileBuilderHref}
-                className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
-                  isLight ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"
-                }`}>
-                {t("mentorship.cta_profile", "Build Your Profile")} <ArrowRight size={15} />
-              </Link>
-            </div>
+            )}
           </aside>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4">
-              <div className="relative">
-                <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${dimCls}`} />
-                <input
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder={t("mentorship.search_placeholder", "Search mentors, topics, or skills…")}
-                  className={`w-full rounded-xl border py-2.5 pl-9 pr-4 text-sm outline-none transition-all duration-150 ${
-                    isLight
-                      ? "border-slate-900/10 bg-white text-slate-900 placeholder-slate-400 focus:border-[#2258d1] focus:shadow-[0_0_0_3px_rgba(34,88,209,0.08)]"
-                      : "border-white/8 bg-white/4 text-[#f5f7fb] placeholder-[#6f7e9d] focus:border-[#8fb7ff]/40 focus:shadow-[0_0_0_3px_rgba(143,183,255,0.08)]"
-                  }`}
-                />
-              </div>
+            <div className="mb-4 relative">
+              <Search size={15} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${dimCls}`} />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={t("mentorship.search_placeholder", "Search mentors, topics, or skills…")}
+                className={`w-full rounded-xl border py-2.5 pl-9 pr-4 text-sm outline-none transition-all duration-150 ${inputCls} ${focusRing}`}
+              />
             </div>
 
-            <div className={`mb-4 flex gap-1 rounded-xl border p-1 ${isLight ? "border-slate-900/8 bg-slate-100/60" : "border-white/6 bg-white/3"}`}>
+            <div className={`mb-4 flex gap-1 rounded-xl border p-1 ${isLight ? "border-ivory-300 bg-ivory-200/50" : "border-midnight-700 bg-midnight-900"}`}>
               {([
                 { key: "mentors" as const, label: t("mentorship.tab_mentors", "Mentors"), icon: <GraduationCap size={13} /> },
                 { key: "offerings" as const, label: t("mentorship.tab_offerings", "Programs & Lessons"), icon: <BookOpen size={13} /> },
@@ -326,17 +424,13 @@ export default function MentorshipPage() {
                 <button key={key} type="button" onClick={() => setActiveTab(key)}
                   className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-150 ${
                     activeTab === key
-                      ? isLight ? "bg-white text-slate-950 shadow-sm" : "bg-white/10 text-[#f5f7fb]"
-                      : isLight ? "text-slate-500 hover:text-slate-700" : "text-[#6f7e9d] hover:text-[#9eabc4]"
-                  }`}>
+                      ? isLight ? "bg-ivory-50 text-midnight-900 shadow-sm" : "bg-midnight-700 text-ivory-50"
+                      : isLight ? "text-slate-500 hover:text-midnight-700" : "text-midnight-400 hover:text-midnight-200"
+                  } ${focusRing}`}>
                   {icon}
                   <span>{label}</span>
-                  <span className={`rounded-full px-1.5 text-xs font-bold ${
-                    activeTab === key
-                      ? isLight ? "bg-slate-100 text-slate-600" : "bg-white/10 text-[#9eabc4]"
-                      : isLight ? "text-slate-400" : "text-[#6f7e9d]"
-                  }`}>
-                    {key === "mentors" ? filteredMentors.length : filteredOfferings.length}
+                  <span className={activeTab === key ? "" : "opacity-60"}>
+                    ({key === "mentors" ? filteredMentors.length : filteredOfferings.length})
                   </span>
                 </button>
               ))}
@@ -356,56 +450,47 @@ export default function MentorshipPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredMentors.map(mentor => (
-                    <article key={mentor.id} className={`rounded-2xl border p-5 transition-all duration-150 ${isLight ? "hover:border-[#2258d1]/20 hover:shadow-md" : "hover:border-[#8fb7ff]/20 hover:bg-white/5"} ${cardCls}`}>
-                      <div className="flex items-start gap-4">
-                        <MentorAvatar name={mentor.name} isLight={isLight} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
+                  {filteredMentors.map(mentor => {
+                    const isSaved = savedIds.has(mentor.id);
+                    const alreadyRequested = requestedIds.has(mentor.id);
+                    return (
+                      <article key={mentor.id} className={`rounded-2xl border p-5 transition-all duration-150 ${cardHover} ${cardCls}`}>
+                        <div className="flex items-start gap-4">
+                          <MentorAvatar name={mentor.name} isLight={isLight} />
+                          <div className="min-w-0 flex-1">
                             <h3 className={`text-base font-semibold ${titleCls}`}>{mentor.name}</h3>
-                            {mentor.certified && (
-                              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                isLight ? "border-emerald-500/25 bg-emerald-50 text-emerald-700" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-400"
-                              }`}>
-                                <BadgeCheck size={11} /> {t("mentorship.certified_badge", "Certified")}
-                              </span>
-                            )}
-                          </div>
-                          <p className={`mt-1 text-sm ${mutedCls}`}>{mentor.bio}</p>
-                          <div className={`mt-3 flex items-center gap-1.5 text-xs ${dimCls}`}>
-                            <MapPin size={13} className={isLight ? "text-[#2258d1]" : "text-[#8fb7ff]"} />
-                            {mentor.location}
-                          </div>
-                          {mentor.tags.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {mentor.tags.map(tag => <Chip key={tag} label={tag} isLight={isLight} />)}
+                            <p className={`mt-1 text-sm ${mutedCls}`}>{mentor.bio}</p>
+
+                            <div className={`mt-3 flex items-center gap-1.5 text-xs ${dimCls}`}>
+                              <MapPin size={13} className={accentCls} />
+                              {mentor.location}
                             </div>
-                          )}
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {mentor.categories.map(cat => (
-                              <CategoryBadge key={cat} category={cat} isLight={isLight} t={t} />
-                            ))}
-                          </div>
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <button type="button" className={`cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
-                              isLight ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"
-                            }`}>
-                              {t("mentorship.cta_request", "Request Session")}
-                            </button>
-                            <button type="button" onClick={() => toggleSave(mentor.id)}
-                              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-medium transition-colors ${
-                                savedIds.has(mentor.id)
-                                  ? isLight ? "border-[#2258d1]/20 bg-[#2258d1]/5 text-[#2258d1]" : "border-[#8fb7ff]/20 bg-[#8fb7ff]/5 text-[#8fb7ff]"
-                                  : isLight ? "border-slate-900/10 text-slate-600 hover:border-slate-300" : "border-white/8 text-[#9eabc4] hover:border-white/15"
-                              }`}>
-                              {savedIds.has(mentor.id) ? <BookmarkCheck size={13} /> : <BookmarkPlus size={13} />}
-                              {savedIds.has(mentor.id) ? t("mentorship.saved", "Saved") : t("mentorship.save", "Save")}
-                            </button>
+
+                            {/* Skills and categories as text, not bubbles. */}
+                            <MetaLine className={`mt-2 ${mutedCls}`} items={mentor.tags} />
+                            <MetaLine className={`mt-1 ${dimCls}`}
+                              items={mentor.categories.map(cat => t(CATEGORY_META[cat].labelKey, CATEGORY_META[cat].fallback))} />
+
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <button type="button" onClick={() => openRequest(mentor)} disabled={alreadyRequested}
+                                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-colors disabled:cursor-default disabled:opacity-60 ${primaryBtn} ${focusRing}`}>
+                                {alreadyRequested
+                                  ? <><Check size={13} /> {t("mentorship.cta_requested", "Requested")}</>
+                                  : t("mentorship.cta_request", "Request Session")}
+                              </button>
+                              <button type="button" onClick={() => handleToggleSave(toSavedMentor(mentor))}
+                                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-medium transition-colors ${
+                                  isSaved ? savedBtn : outlineBtn
+                                } ${focusRing}`}>
+                                {isSaved ? <BookmarkCheck size={13} /> : <BookmarkPlus size={13} />}
+                                {isSaved ? t("mentorship.saved", "Saved") : t("mentorship.save", "Save")}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </article>
-                  ))}
+                      </article>
+                    );
+                  })}
                 </div>
               )
             ) : filteredOfferings.length === 0 ? (
@@ -415,67 +500,132 @@ export default function MentorshipPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredOfferings.map(offering => (
-                  <article key={offering.id} className={`rounded-2xl border p-5 transition-all duration-150 ${isLight ? "hover:border-[#2258d1]/20 hover:shadow-md" : "hover:border-[#8fb7ff]/20 hover:bg-white/5"} ${cardCls}`}>
-                    <div className="flex items-start gap-4">
-                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                        isLight ? "bg-[#2258d1]/10 text-[#2258d1]" : "bg-[#8fb7ff]/15 text-[#8fb7ff]"
-                      }`}>
-                        {CATEGORY_ICONS[offering.category]}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
+                {filteredOfferings.map((offering: MentorshipOffering) => {
+                  const isSaved = savedIds.has(offering.id);
+                  return (
+                    <article key={offering.id} className={`rounded-2xl border p-5 transition-all duration-150 ${cardHover} ${cardCls}`}>
+                      <div className="flex items-start gap-4">
+                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                          isLight ? "bg-amber-50 text-amber-800" : "bg-amber-900/30 text-amber-200"
+                        }`}>
+                          {CATEGORY_ICONS[offering.category]}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className={`text-base font-semibold ${titleCls}`}>{offering.title}</h3>
+                          <MetaLine className={`mt-1 ${dimCls}`}
+                            items={[offering.provider, offering.format, offering.duration, offering.cost]} />
+                          <p className={`mt-2 text-sm ${mutedCls}`}>{offering.description}</p>
+
+                          {/* The mentor's own verdict — the reason this is listed at all. */}
+                          <div className={`mt-3 rounded-xl border p-3 ${isLight ? "border-ivory-200 bg-ivory-100/60" : "border-midnight-700 bg-midnight-900/60"}`}>
                             <div className="flex flex-wrap items-center gap-2">
-                              <h3 className={`text-base font-semibold ${titleCls}`}>{offering.title}</h3>
-                              {offering.certified && (
-                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                  isLight ? "border-emerald-500/25 bg-emerald-50 text-emerald-700" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-400"
-                                }`}>
-                                  <BadgeCheck size={11} /> {t("mentorship.certified_badge", "Certified")}
-                                </span>
-                              )}
+                              <RatingStars rating={offering.rating} label={offering.title} />
+                              <span className={`text-xs font-medium ${isLight ? "text-midnight-700" : "text-midnight-200"}`}>
+                                {t("mentorship.recommended_by", "Recommended by")} {offering.recommendedBy}
+                              </span>
                             </div>
-                            <p className={`mt-1 text-sm ${mutedCls}`}>{offering.description}</p>
+                            <p className={`mt-1.5 text-xs leading-relaxed italic ${mutedCls}`}>
+                              &ldquo;{offering.review}&rdquo;
+                            </p>
                           </div>
-                          <CategoryBadge category={offering.category} isLight={isLight} t={t} />
-                        </div>
-                        <div className={`mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs ${dimCls}`}>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Users size={13} />
-                            {offering.mentorName}
-                          </span>
-                          <span>{offering.format}</span>
-                          <span>{offering.duration}</span>
-                          {offering.spots != null && (
-                            <span>{offering.spots} {t("mentorship.spots_left", "spots")}</span>
-                          )}
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <button type="button" className={`cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
-                            isLight ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-[#2258d1] text-white hover:bg-[#1a46ab]"
-                          }`}>
-                            {t("mentorship.cta_enroll", "Request Access")}
-                          </button>
-                          <button type="button" onClick={() => toggleSave(offering.id)}
-                            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-medium transition-colors ${
-                              savedIds.has(offering.id)
-                                ? isLight ? "border-[#2258d1]/20 bg-[#2258d1]/5 text-[#2258d1]" : "border-[#8fb7ff]/20 bg-[#8fb7ff]/5 text-[#8fb7ff]"
-                                : isLight ? "border-slate-900/10 text-slate-600 hover:border-slate-300" : "border-white/8 text-[#9eabc4] hover:border-white/15"
-                            }`}>
-                            {savedIds.has(offering.id) ? <BookmarkCheck size={13} /> : <BookmarkPlus size={13} />}
-                            {savedIds.has(offering.id) ? t("mentorship.saved", "Saved") : t("mentorship.save", "Save")}
-                          </button>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <a href={offering.url} target="_blank" rel="noopener noreferrer"
+                              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${primaryBtn} ${focusRing}`}>
+                              {t("mentorship.cta_access", "Access")}
+                              <ExternalLink size={13} />
+                            </a>
+                            <button type="button" onClick={() => handleToggleSave(toSavedOffering(offering))}
+                              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-medium transition-colors ${
+                                isSaved ? savedBtn : outlineBtn
+                              } ${focusRing}`}>
+                              {isSaved ? <BookmarkCheck size={13} /> : <BookmarkPlus size={13} />}
+                              {isSaved ? t("mentorship.saved", "Saved") : t("mentorship.save", "Save")}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* ── Request session modal ─────────────────────────────────────────── */}
+      {requestMentor && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          role="dialog" aria-modal="true" aria-labelledby="request-title">
+          <div className={`w-full max-w-lg rounded-2xl border p-6 ${isLight ? "border-ivory-300 bg-ivory-50" : "border-midnight-700 bg-midnight-900"}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="request-title" className={`text-base font-bold ${titleCls}`}>
+                  {t("mentorship.request_title", "Request a session with")} {requestMentor.name}
+                </h2>
+                <p className={`mt-1 text-xs leading-relaxed ${mutedCls}`}>
+                  {t("mentorship.request_help", "Mentors volunteer their time. Tell them what you need help with so they can prepare — vague requests usually go unanswered.")}
+                </p>
+              </div>
+              <button type="button" onClick={() => setRequestMentor(null)}
+                aria-label={t("mentorship.request_cancel", "Cancel")}
+                className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border ${outlineBtn} ${focusRing}`}>
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="request-reason" className={`mb-1.5 block text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
+                {t("mentorship.request_reason_label", "Why are you reaching out?")} *
+              </label>
+              <textarea
+                id="request-reason"
+                value={reason}
+                onChange={e => setReason(e.target.value.slice(0, MAX_REASON_LENGTH))}
+                rows={5}
+                autoFocus
+                placeholder={t("mentorship.request_reason_placeholder", "What are you working on, what are you stuck on, and what would a good session look like for you?")}
+                className={`w-full resize-none rounded-xl border px-4 py-3 text-sm leading-relaxed outline-none ${inputCls} ${focusRing}`}
+              />
+              <div className="mt-1.5 flex items-center justify-between text-xs">
+                <span className={reasonValid ? mutedCls : accentCls}>
+                  {reasonValid
+                    ? t("mentorship.request_ready", "Ready to send")
+                    : t("mentorship.request_min", "At least {n} characters").replace("{n}", String(MIN_REASON_LENGTH))}
+                </span>
+                <span className={dimCls}>{reasonLength}/{MAX_REASON_LENGTH}</span>
+              </div>
+            </div>
+
+            {!signedIn && (
+              <p className={`mt-4 rounded-xl border px-4 py-3 text-xs ${isLight ? "border-amber-200 bg-amber-50 text-amber-800" : "border-amber-700/50 bg-amber-900/30 text-amber-200"}`}>
+                {t("mentorship.request_signin", "Please sign in to request a session.")}{" "}
+                <Link href="/auth/signin" className="font-semibold underline underline-offset-2">
+                  {t("header.sign_in", "Sign In")}
+                </Link>
+              </p>
+            )}
+
+            {requestError && (
+              <p role="alert" className={`mt-4 rounded-xl px-4 py-3 text-xs ${isLight ? "bg-red-50 text-red-700" : "bg-red-500/10 text-red-300"}`}>
+                {requestError}
+              </p>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={submitRequest} disabled={!reasonValid || submitting || !signedIn}
+                className={`flex-1 cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${primaryBtn} ${focusRing}`}>
+                {submitting ? t("mentorship.request_sending", "Sending…") : t("mentorship.request_send", "Send request")}
+              </button>
+              <button type="button" onClick={() => setRequestMentor(null)}
+                className={`cursor-pointer rounded-xl border px-5 py-3 text-sm font-medium transition-colors ${outlineBtn} ${focusRing}`}>
+                {t("mentorship.request_cancel", "Cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
