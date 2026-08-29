@@ -325,7 +325,11 @@
     "username_available": "Username is available.",
     "username_checking": "Checking availability…",
     "username_hint": "3–30 chars: letters, numbers, dots, underscores, hyphens.",
-    "username_suggestions": "Try one of these:"
+    "username_suggestions": "Try one of these:",
+    "email_required": "Please enter your email address.",
+    "password_length_error": "Password must be at least 8 characters long.",
+    "username_check_error": "Could not check username availability.",
+    "email_taken_error": "An account with this email already exists."
   },
   "sample": {
     "title": "Profile Builder",
@@ -684,5 +688,31 @@
     "mentorship_desc": "A complete profile with visuals draws 5x more attention from sponsors.",
     "next_project": "Start Your Next Big Project",
     "next_project_desc": "Define your vision and recruit collaborators for your third showcase slot."
+  },
+  "requests": {
+    "link": "Requests",
+    "pending_count": "{count} pending",
+    "title": "Session requests",
+    "subtitle": "Requests people have sent you, and the ones you have sent to mentors.",
+    "loading": "Loading requests…",
+    "load_failed": "Could not load requests.",
+    "update_failed": "Could not update the request.",
+    "signin_title": "Sign in to see your requests",
+    "incoming": "Requests to you",
+    "incoming_empty": "No one has requested a session with you yet.",
+    "outgoing": "Requests you sent",
+    "outgoing_empty": "You have not requested a session yet.",
+    "find_mentor": "Find a mentor",
+    "unknown_maker": "A maker",
+    "view_profile": "View profile",
+    "accept": "Accept",
+    "decline": "Decline",
+    "reopen": "Reopen",
+    "withdraw": "Withdraw",
+    "accepted_note": "Accepted. There is no messaging yet — reach out using the contact details on their profile.",
+    "status_pending": "Pending",
+    "status_accepted": "Accepted",
+    "status_declined": "Declined",
+    "status_withdrawn": "Withdrawn"
   }
 }

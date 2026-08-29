@@ -25,7 +25,7 @@ import {
 } from "../../lib/mentorship-saved";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, BookOpen, BookmarkCheck, BookmarkPlus,
-  Check, ExternalLink, FileText, GraduationCap, Loader2, MapPin, MessageCircle,
+  Check, ExternalLink, FileText, GraduationCap, Inbox, Loader2, MapPin, MessageCircle,
   Mic, Presentation, Search, ShieldCheck, Sparkles, Star, UserPlus, X,
 } from "lucide-react";
 
@@ -120,6 +120,8 @@ export default function MentorshipPage() {
   const [signedIn, setSignedIn] = useState(false);
   /** Null until checked, so the "build your portfolio" nudge never flashes. */
   const [portfolioReady, setPortfolioReady] = useState<boolean | null>(null);
+  /** Pending requests addressed to this user, when they are a mentor. */
+  const [pendingIncoming, setPendingIncoming] = useState(0);
 
   /* ── Midnight & Amber palette — trialled on this page only ──
      Amber is accent-only: links, focus rings, ratings. Never a CTA background. */
@@ -159,10 +161,20 @@ export default function MentorshipPage() {
           try {
             const { data: profile } = await supabase
               .from("profiles")
-              .select("first_name,location_country,location_city,major_field,passion_sector")
+              .select("first_name,location_country,location_city,major_field,passion_sector,is_mentor")
               .eq("id", user.id)
               .single();
             if (mounted) setPortfolioReady(isProfileComplete(profile));
+
+            // Mentors get a count of what is waiting for them.
+            if (profile?.is_mentor) {
+              const { count } = await supabase
+                .from("mentor_requests")
+                .select("id", { count: "exact", head: true })
+                .eq("mentor_id", user.id)
+                .eq("status", "pending");
+              if (mounted && typeof count === "number") setPendingIncoming(count);
+            }
           } catch {
             if (mounted) setPortfolioReady(false);
           }
@@ -300,7 +312,20 @@ export default function MentorshipPage() {
             <ArrowLeft size={15} className="rtl:rotate-180" /> {t("mentorship.back_home", "Back to home")}
           </Link>
 
-          <Link href="/mentorship/saved"
+          <div className="flex flex-wrap items-center gap-3">
+            {signedIn && (
+              <Link href="/mentorship/requests"
+                className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                  pendingIncoming > 0 ? savedBtn : outlineBtn
+                } ${focusRing}`}>
+                <Inbox size={15} />
+                {pendingIncoming > 0
+                  ? t("requests.pending_count", "{count} pending").replace("{count}", String(pendingIncoming))
+                  : t("requests.link", "Requests")}
+              </Link>
+            )}
+
+            <Link href="/mentorship/saved"
             className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
               saved.length > 0 ? savedBtn : outlineBtn
             } ${focusRing}`}>
@@ -308,7 +333,8 @@ export default function MentorshipPage() {
             {saved.length > 0
               ? t("mentorship.saved_count", "{count} saved").replace("{count}", String(saved.length))
               : t("mentorship.view_saved", "Saved")}
-          </Link>
+            </Link>
+          </div>
         </div>
 
         {/* Page title. "Mentorship Hub" leads; the old h1 is now the standfirst. */}

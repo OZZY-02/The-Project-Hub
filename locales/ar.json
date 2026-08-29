@@ -298,7 +298,11 @@
     "username_available": "اسم المستخدم متاح.",
     "username_checking": "جارٍ التحقق من التوفر…",
     "username_hint": "٣–٣٠ حرفاً: أحرف وأرقام ونقاط وشرطات سفلية وشرطات.",
-    "username_suggestions": "جرّب أحد هذه:"
+    "username_suggestions": "جرّب أحد هذه:",
+    "email_required": "الرجاء إدخال بريدك الإلكتروني.",
+    "password_length_error": "يجب ألا تقل كلمة المرور عن ٨ أحرف.",
+    "username_check_error": "تعذّر التحقق من توفر اسم المستخدم.",
+    "email_taken_error": "يوجد حساب بهذا البريد الإلكتروني بالفعل."
   },
   "sample": {
     "title": "منشئ الملف الشخصي",
@@ -657,5 +661,31 @@
     "mentorship_desc": "الملف المكتمل بالصور يجذب اهتماماً أكبر ٥ مرات من الرعاة.",
     "next_project": "ابدأ مشروعك الكبير القادم",
     "next_project_desc": "حدّد رؤيتك واستقطب متعاونين لمساحة العرض الثالثة."
+  },
+  "requests": {
+    "link": "الطلبات",
+    "pending_count": "{count} قيد الانتظار",
+    "title": "طلبات الجلسات",
+    "subtitle": "الطلبات التي أرسلها إليك الآخرون، وتلك التي أرسلتها إلى المرشدين.",
+    "loading": "جارٍ تحميل الطلبات…",
+    "load_failed": "تعذّر تحميل الطلبات.",
+    "update_failed": "تعذّر تحديث الطلب.",
+    "signin_title": "سجّل الدخول لعرض طلباتك",
+    "incoming": "طلبات موجهة إليك",
+    "incoming_empty": "لم يطلب أحد جلسة معك بعد.",
+    "outgoing": "طلبات أرسلتها",
+    "outgoing_empty": "لم تطلب جلسة بعد.",
+    "find_mentor": "ابحث عن مرشد",
+    "unknown_maker": "أحد الصنّاع",
+    "view_profile": "عرض الملف",
+    "accept": "قبول",
+    "decline": "رفض",
+    "reopen": "إعادة فتح",
+    "withdraw": "سحب الطلب",
+    "accepted_note": "تم القبول. لا توجد مراسلة بعد — تواصل عبر بيانات الاتصال في ملفهم.",
+    "status_pending": "قيد الانتظار",
+    "status_accepted": "مقبول",
+    "status_declined": "مرفوض",
+    "status_withdrawn": "مسحوب"
   }
 }
