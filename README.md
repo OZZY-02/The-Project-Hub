@@ -17,8 +17,10 @@ npm run test
 ## Local Setup
 
 1. Install dependencies with `npm install`.
-2. Create `.env.local`.
-3. Add the required client env vars:
+2. Create `.env.local` by copying the template: `cp .env.local.example .env.local`.
+   Without it the app falls back to a placeholder Supabase project and every
+   sign-in fails — check the browser console for the setup warning.
+3. Fill in the required client env vars:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
