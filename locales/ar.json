@@ -534,7 +534,15 @@
     "request_sent": "تم إرسال الطلب.",
     "request_duplicate": "لديك طلب مفتوح بالفعل مع هذا المرشد.",
     "request_signin": "الرجاء تسجيل الدخول لطلب جلسة.",
-    "request_failed": "تعذّر إرسال الطلب."
+    "request_failed": "تعذّر إرسال الطلب.",
+    "cta_accepted": "مقبول",
+    "withdraw_hint": "اضغط للسحب",
+    "withdraw_title": "سحب طلبك؟",
+    "withdraw_body": "سيتم سحب طلبك المرسل إلى {name}. يمكنك إرسال طلب جديد لاحقاً.",
+    "withdraw_yes": "نعم، اسحب",
+    "withdraw_no": "لا، احتفظ به",
+    "withdraw_working": "جارٍ السحب…",
+    "withdraw_done": "تم سحب الطلب."
   },
   "portfolio": {
     "ai_title": "محرر الملف بالذكاء الاصطناعي",

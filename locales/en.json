@@ -561,7 +561,15 @@
     "request_sent": "Request sent.",
     "request_duplicate": "You already have an open request with this mentor.",
     "request_signin": "Please sign in to request a session.",
-    "request_failed": "Could not send the request."
+    "request_failed": "Could not send the request.",
+    "cta_accepted": "Accepted",
+    "withdraw_hint": "Click to withdraw",
+    "withdraw_title": "Withdraw your request?",
+    "withdraw_body": "Your request to {name} will be withdrawn. You can send a new one later.",
+    "withdraw_yes": "Yes, withdraw",
+    "withdraw_no": "No, keep it",
+    "withdraw_working": "Withdrawing…",
+    "withdraw_done": "Request withdrawn."
   },
   "portfolio": {
     "ai_title": "AI Portfolio Editor",
