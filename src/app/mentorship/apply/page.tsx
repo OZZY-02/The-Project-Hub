@@ -1,23 +1,24 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "../../../lib/i18n";
 import { useTheme } from "../../../lib/theme";
 import supabase from "../../../lib/supabaseClient";
 import { CATEGORY_KEYS, CATEGORY_META, type MentorCategoryKey } from "../../../lib/mentorship-data";
+import { MAX_RESUME_BYTES, uploadMentorResume } from "../../../lib/storage";
 import {
-  ArrowLeft, BadgeCheck, Check, Clock, Loader2, Lock, Plus, X,
+  ArrowLeft, BadgeCheck, Check, Clock, FileText, Loader2, Lock, Plus, Upload, X,
 } from "lucide-react";
 
 const MIN_MOTIVATION = 80;
 const MAX_MOTIVATION = 1000;
 
 const AVAILABILITY_OPTIONS = [
-  "1–2 hours a month",
-  "3–5 hours a month",
-  "5+ hours a month",
-  "Ad hoc / project based",
+  "1–2 hours a week",
+  "3–5 hours a week",
+  "5+ hours a week",
+  "Depends on the project",
 ];
 
 const LANGUAGE_OPTIONS = ["Arabic", "English", "Other"];
@@ -54,6 +55,9 @@ export default function MentorApplyPage() {
   const [availability, setAvailability] = useState("");
   const [motivation, setMotivation] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [resume, setResume] = useState<File | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
 
   /* ── Midnight & Amber palette ── */
   const shellCls   = isLight ? "bg-ivory-100 text-midnight-700" : "bg-midnight-950 text-midnight-100";
@@ -126,6 +130,23 @@ export default function MentorApplyPage() {
     setExpertiseInput("");
   };
 
+  const pickResume = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setResumeError(null);
+    if (!file) { setResume(null); return; }
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setResumeError(t("apply.resume_type_error", "Please upload a PDF."));
+      setResume(null);
+      return;
+    }
+    if (file.size > MAX_RESUME_BYTES) {
+      setResumeError(t("apply.resume_size_error", "That file is over 5 MB. Please upload a smaller PDF."));
+      setResume(null);
+      return;
+    }
+    setResume(file);
+  };
+
   const motivationLength = motivation.trim().length;
   const hasLink = Boolean(linkedin.trim() || portfolio.trim());
   const canSubmit =
@@ -133,6 +154,8 @@ export default function MentorApplyPage() {
     email.includes("@") &&
     jobTitle.trim().length >= 2 &&
     years !== "" &&
+    location.trim().length >= 2 &&
+    resume !== null &&
     hasLink &&
     categories.length > 0 &&
     availability !== "" &&
@@ -144,6 +167,10 @@ export default function MentorApplyPage() {
     setSubmitting(true);
     setError(null);
     try {
+      // Upload before the insert: a required resume that failed to store would
+      // leave an application a reviewer cannot act on.
+      const resumePath = await uploadMentorResume(userId, resume!);
+
       // Upsert so re-applying after a rejection updates the same row rather
       // than tripping the UNIQUE constraint on user_id.
       const { error: submitError } = await supabase.from("mentor_applications").upsert({
@@ -153,7 +180,8 @@ export default function MentorApplyPage() {
         job_title: jobTitle.trim(),
         organisation: organisation.trim() || null,
         years_experience: Number(years),
-        location: location.trim() || null,
+        location: location.trim(),
+        resume_path: resumePath,
         linkedin_url: linkedin.trim() || null,
         portfolio_url: portfolio.trim() || null,
         categories,
@@ -170,6 +198,7 @@ export default function MentorApplyPage() {
       setExistingStatus("pending");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("apply.failed", "Could not send your application."));
+      setResumeError(null);
     } finally {
       setSubmitting(false);
     }
@@ -248,7 +277,7 @@ export default function MentorApplyPage() {
                   <p className={`mt-1 text-xs ${dimCls}`}>{t("apply.email_hint", "How we reach you about your application.")}</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <label htmlFor="location" className={labelCls}>{t("apply.location", "Location")}</label>
+                  <label htmlFor="location" className={labelCls}>{t("apply.location", "Location")} *</label>
                   <input id="location" value={location} onChange={e => setLocation(e.target.value)}
                     placeholder={t("apply.location_placeholder", "City, country")} className={inputCls} />
                 </div>
@@ -286,6 +315,42 @@ export default function MentorApplyPage() {
                     {t("apply.link_hint", "Give at least one link we can use to verify your background.")}
                   </p>
                 </div>
+              </div>
+
+              {/* Resume — required, and the main artefact a reviewer reads. */}
+              <div className="mt-4">
+                <label className={labelCls}>{t("apply.resume", "Resume")} *</label>
+                <input
+                  ref={resumeInputRef}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={pickResume}
+                  className="hidden"
+                />
+                {resume ? (
+                  <div className={`flex items-center gap-3 rounded-xl border p-3 ${outlineBtn}`}>
+                    <FileText size={18} className={accentCls} />
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-sm font-medium ${titleCls}`}>{resume.name}</p>
+                      <p className={`text-xs ${dimCls}`}>{(resume.size / 1024 / 1024).toFixed(1)} MB</p>
+                    </div>
+                    <button type="button"
+                      onClick={() => { setResume(null); if (resumeInputRef.current) resumeInputRef.current.value = ""; }}
+                      aria-label={t("apply.resume_remove", "Remove resume")}
+                      className={`cursor-pointer rounded-lg border p-2 ${outlineBtn} ${focusRing}`}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => resumeInputRef.current?.click()}
+                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm font-medium transition-colors ${outlineBtn} ${focusRing}`}>
+                    <Upload size={16} />
+                    {t("apply.resume_upload", "Upload your resume (PDF)")}
+                  </button>
+                )}
+                <p className={`mt-1 text-xs ${resumeError ? "text-red-500" : dimCls}`}>
+                  {resumeError ?? t("apply.resume_hint", "PDF only, up to 5 MB. Kept private and seen only by reviewers.")}
+                </p>
               </div>
 
               <div className="mt-4">
@@ -359,7 +424,7 @@ export default function MentorApplyPage() {
               </div>
 
               <div className="mt-5">
-                <label htmlFor="availability" className={labelCls}>{t("apply.availability", "Time you can give")} *</label>
+                <label htmlFor="availability" className={labelCls}>{t("apply.availability", "Time you can volunteer")} *</label>
                 <select id="availability" value={availability} onChange={e => setAvailability(e.target.value)} className={inputCls}>
                   <option value="">{t("apply.availability_placeholder", "Select…")}</option>
                   {AVAILABILITY_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}

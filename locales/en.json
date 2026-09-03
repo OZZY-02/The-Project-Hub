@@ -758,7 +758,7 @@
     "offer_hint": "Pick everything you would be happy to help with.",
     "categories": "Support types",
     "languages": "Languages you can mentor in",
-    "availability": "Time you can give",
+    "availability": "Time you can volunteer",
     "availability_placeholder": "Select…",
     "section_motivation": "Why you want to mentor",
     "motivation_placeholder": "What drew you to this, who you most want to help, and what you would bring to a first session.",
@@ -768,6 +768,12 @@
     "submit": "Submit application",
     "sending": "Sending…",
     "incomplete": "Fill in the required fields marked *",
-    "failed": "Could not send your application."
+    "failed": "Could not send your application.",
+    "resume": "Resume",
+    "resume_upload": "Upload your resume (PDF)",
+    "resume_hint": "PDF only, up to 5 MB. Kept private and seen only by reviewers.",
+    "resume_remove": "Remove resume",
+    "resume_type_error": "Please upload a PDF.",
+    "resume_size_error": "That file is over 5 MB. Please upload a smaller PDF."
   }
 }

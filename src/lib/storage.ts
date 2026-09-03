@@ -103,3 +103,37 @@ export async function uploadProjectImages(
 
   return (await Promise.all(uploads)).filter(Boolean);
 }
+
+export const MENTOR_RESUMES_BUCKET = "mentor-resumes";
+
+/** 5 MB — enough for any reasonable CV, small enough to reject junk. */
+export const MAX_RESUME_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Upload a file to a PRIVATE bucket and return its object path.
+ *
+ * Unlike uploadImage there is no public URL and no base64 fallback: a resume is
+ * personal data, and inlining a PDF into Postgres would be worse than failing.
+ * Callers must treat a thrown error as "the upload did not happen".
+ */
+export async function uploadPrivateFile(
+  bucket: string,
+  path: string,
+  file: File
+): Promise<string> {
+  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+    contentType: file.type || "application/pdf",
+    upsert: true,
+  });
+  if (error) throw error;
+  return path;
+}
+
+/** Store as `<user id>/resume-<timestamp>.pdf` so the owner is the first segment. */
+export async function uploadMentorResume(userId: string, file: File): Promise<string> {
+  return uploadPrivateFile(
+    MENTOR_RESUMES_BUCKET,
+    `${userId}/resume-${Date.now()}.pdf`,
+    file
+  );
+}

@@ -24,7 +24,10 @@ CREATE TABLE IF NOT EXISTS public.mentor_applications (
   job_title text NOT NULL CHECK (char_length(btrim(job_title)) >= 2),
   organisation text,
   years_experience integer NOT NULL CHECK (years_experience BETWEEN 0 AND 60),
-  location text,
+  location text NOT NULL,
+
+  -- Object path inside the private mentor-resumes bucket.
+  resume_path text NOT NULL,
 
   -- At least one verifiable link is required by the form; keeping both
   -- nullable here lets an applicant supply either one.
