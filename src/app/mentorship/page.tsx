@@ -131,6 +131,8 @@ export default function MentorshipPage() {
   const [portfolioReady, setPortfolioReady] = useState<boolean | null>(null);
   /** Pending requests addressed to this user, when they are a mentor. */
   const [pendingIncoming, setPendingIncoming] = useState(0);
+  /** Already-approved mentors do not need the apply card. */
+  const [alreadyMentor, setAlreadyMentor] = useState(false);
 
   /* ── Midnight & Amber palette — trialled on this page only ──
      Amber is accent-only: links, focus rings, ratings. Never a CTA background. */
@@ -174,6 +176,8 @@ export default function MentorshipPage() {
               .eq("id", user.id)
               .single();
             if (mounted) setPortfolioReady(isProfileComplete(profile));
+
+            if (mounted) setAlreadyMentor(Boolean(profile?.is_mentor));
 
             // Mentors get a count of what is waiting for them.
             if (profile?.is_mentor) {
@@ -452,6 +456,25 @@ export default function MentorshipPage() {
             {/* Only shown to people who have not built a portfolio yet.
                 `=== false` rather than `!portfolioReady` so the nudge stays
                 hidden while the check is still in flight. */}
+            {/* Becoming a mentor had no entry point anywhere in the product. */}
+            {!alreadyMentor && (
+              <div className={`rounded-2xl border p-5 ${cardCls}`}>
+                <div className="flex items-center gap-2">
+                  <UserPlus size={15} className={accentCls} />
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
+                    {t("apply.card_title", "Become a mentor")}
+                  </p>
+                </div>
+                <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
+                  {t("apply.card_body", "Been where these makers want to go? Apply to join the mentor network.")}
+                </p>
+                <Link href="/mentorship/apply"
+                  className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${primaryBtn} ${focusRing}`}>
+                  {t("apply.cta", "Apply to be a Mentor")} <ArrowRight size={15} className="rtl:rotate-180" />
+                </Link>
+              </div>
+            )}
+
             {portfolioReady === false && (
               <div className={`rounded-2xl border p-5 ${cardCls}`}>
                 <div className="flex items-center gap-2">
