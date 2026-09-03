@@ -46,8 +46,8 @@ export default function MentorApplyPage() {
   const [organisation, setOrganisation] = useState("");
   const [years, setYears] = useState("");
   const [location, setLocation] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [portfolio, setPortfolio] = useState("");
+  /** One field for whichever link they have — LinkedIn, GitHub, or a site. */
+  const [profileLink, setProfileLink] = useState("");
   const [categories, setCategories] = useState<MentorCategoryKey[]>([]);
   const [expertise, setExpertise] = useState<string[]>([]);
   const [expertiseInput, setExpertiseInput] = useState("");
@@ -148,7 +148,7 @@ export default function MentorApplyPage() {
   };
 
   const motivationLength = motivation.trim().length;
-  const hasLink = Boolean(linkedin.trim() || portfolio.trim());
+  const hasLink = profileLink.trim().length > 0;
   const canSubmit =
     fullName.trim().length >= 2 &&
     email.includes("@") &&
@@ -171,6 +171,9 @@ export default function MentorApplyPage() {
       // leave an application a reviewer cannot act on.
       const resumePath = await uploadMentorResume(userId, resume!);
 
+      const link = profileLink.trim();
+      const isLinkedIn = /(^|\.)linkedin\.com([/:]|$)/i.test(link);
+
       // Upsert so re-applying after a rejection updates the same row rather
       // than tripping the UNIQUE constraint on user_id.
       const { error: submitError } = await supabase.from("mentor_applications").upsert({
@@ -182,8 +185,10 @@ export default function MentorApplyPage() {
         years_experience: Number(years),
         location: location.trim(),
         resume_path: resumePath,
-        linkedin_url: linkedin.trim() || null,
-        portfolio_url: portfolio.trim() || null,
+        // One input, two columns: keep LinkedIn distinguishable for reviewers
+        // rather than filing every link under portfolio_url.
+        linkedin_url: isLinkedIn ? link : null,
+        portfolio_url: isLinkedIn ? null : link,
         categories,
         expertise,
         languages,
@@ -302,17 +307,14 @@ export default function MentorApplyPage() {
                   <input id="years" type="number" min={0} max={60} value={years}
                     onChange={e => setYears(e.target.value)} className={inputCls} />
                 </div>
-                <div>
-                  <label htmlFor="linkedin" className={labelCls}>{t("apply.linkedin", "LinkedIn")}</label>
-                  <input id="linkedin" value={linkedin} onChange={e => setLinkedin(e.target.value)}
-                    placeholder="https://linkedin.com/in/…" className={inputCls} />
-                </div>
                 <div className="sm:col-span-2">
-                  <label htmlFor="portfolio" className={labelCls}>{t("apply.portfolio", "Portfolio, GitHub, or personal site")}</label>
-                  <input id="portfolio" value={portfolio} onChange={e => setPortfolio(e.target.value)}
-                    placeholder="https://…" className={inputCls} />
+                  <label htmlFor="profile-link" className={labelCls}>
+                    {t("apply.profile_link", "LinkedIn, portfolio, GitHub, or personal site")} *
+                  </label>
+                  <input id="profile-link" value={profileLink} onChange={e => setProfileLink(e.target.value)}
+                    placeholder="https://linkedin.com/in/… " className={inputCls} />
                   <p className={`mt-1 text-xs ${hasLink ? dimCls : accentCls}`}>
-                    {t("apply.link_hint", "Give at least one link we can use to verify your background.")}
+                    {t("apply.link_hint", "One link we can use to verify your background.")}
                   </p>
                 </div>
               </div>

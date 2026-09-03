@@ -747,9 +747,7 @@
     "job_title_placeholder": "e.g. Senior Product Designer",
     "organisation": "Company or organisation",
     "years": "Years of experience",
-    "linkedin": "LinkedIn",
-    "portfolio": "Portfolio, GitHub, or personal site",
-    "link_hint": "Give at least one link we can use to verify your background.",
+    "link_hint": "One link we can use to verify your background.",
     "expertise": "Areas of expertise",
     "expertise_placeholder": "e.g. Product Management, React, Hiring",
     "expertise_add": "Add",
@@ -774,6 +772,7 @@
     "resume_hint": "PDF only, up to 5 MB. Kept private and seen only by reviewers.",
     "resume_remove": "Remove resume",
     "resume_type_error": "Please upload a PDF.",
-    "resume_size_error": "That file is over 5 MB. Please upload a smaller PDF."
+    "resume_size_error": "That file is over 5 MB. Please upload a smaller PDF.",
+    "profile_link": "LinkedIn, portfolio, GitHub, or personal site"
   }
 }
