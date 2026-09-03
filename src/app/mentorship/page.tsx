@@ -25,7 +25,7 @@ import {
 } from "../../lib/mentorship-saved";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, BookOpen, BookmarkCheck, BookmarkPlus,
-  Check, ExternalLink, FileText, GraduationCap, Loader2, MapPin, MessageCircle,
+  Check, ExternalLink, FileText, GraduationCap, Inbox, Loader2, MapPin, MessageCircle,
   Mic, Presentation, Search, ShieldCheck, Sparkles, Star, UserPlus, X,
 } from "lucide-react";
 
@@ -40,6 +40,8 @@ const CATEGORY_ICONS: Record<MentorCategoryKey, React.ReactNode> = {
   course: <BookOpen size={14} />,
   workshop: <Presentation size={14} />,
 };
+
+type RequestStatus = "pending" | "accepted" | "declined" | "withdrawn";
 
 /** Matches the CHECK constraint on mentor_requests.reason. */
 const MIN_REASON_LENGTH = 40;
@@ -116,10 +118,21 @@ export default function MentorshipPage() {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
-  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  /**
+   * Status of this user's request per mentor. A withdrawn or declined request
+   * must not read as "Requested" — the row still exists, but it is no longer
+   * live, and the person should be able to ask again.
+   */
+  const [requestStatus, setRequestStatus] = useState<Record<string, RequestStatus>>({});
+  const [withdrawMentor, setWithdrawMentor] = useState<MentorProfile | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
   /** Null until checked, so the "build your portfolio" nudge never flashes. */
   const [portfolioReady, setPortfolioReady] = useState<boolean | null>(null);
+  /** Pending requests addressed to this user, when they are a mentor. */
+  const [pendingIncoming, setPendingIncoming] = useState(0);
+  /** Already-approved mentors do not need the apply card. */
+  const [alreadyMentor, setAlreadyMentor] = useState(false);
 
   /* ── Midnight & Amber palette — trialled on this page only ──
      Amber is accent-only: links, focus rings, ratings. Never a CTA background. */
@@ -159,10 +172,22 @@ export default function MentorshipPage() {
           try {
             const { data: profile } = await supabase
               .from("profiles")
-              .select("first_name,location_country,location_city,major_field,passion_sector")
+              .select("first_name,location_country,location_city,major_field,passion_sector,is_mentor")
               .eq("id", user.id)
               .single();
             if (mounted) setPortfolioReady(isProfileComplete(profile));
+
+            if (mounted) setAlreadyMentor(Boolean(profile?.is_mentor));
+
+            // Mentors get a count of what is waiting for them.
+            if (profile?.is_mentor) {
+              const { count } = await supabase
+                .from("mentor_requests")
+                .select("id", { count: "exact", head: true })
+                .eq("mentor_id", user.id)
+                .eq("status", "pending");
+              if (mounted && typeof count === "number") setPendingIncoming(count);
+            }
           } catch {
             if (mounted) setPortfolioReady(false);
           }
@@ -170,8 +195,12 @@ export default function MentorshipPage() {
           // Show "Requested" on mentors this person has already contacted.
           try {
             const { data: reqs } = await supabase
-              .from("mentor_requests").select("mentor_id").eq("requester_id", user.id);
-            if (mounted && reqs) setRequestedIds(new Set(reqs.map(r => r.mentor_id as string)));
+              .from("mentor_requests").select("mentor_id, status").eq("requester_id", user.id);
+            if (mounted && reqs) {
+              setRequestStatus(Object.fromEntries(
+                reqs.map(r => [r.mentor_id as string, r.status as RequestStatus])
+              ));
+            }
           } catch {
             /* table not migrated yet — requests simply show as unsent */
           }
@@ -238,24 +267,23 @@ export default function MentorshipPage() {
         return;
       }
 
-      const { error } = await supabase.from("mentor_requests").insert({
+      // UNIQUE (requester_id, mentor_id) means a withdrawn or declined request
+      // still occupies the row, so asking again has to update it rather than
+      // insert a second one.
+      const { error } = await supabase.from("mentor_requests").upsert({
         requester_id: user.id,
         mentor_id: requestMentor.id,
         mentor_name: requestMentor.name,
         reason: trimmed,
-      });
+        status: "pending",
+      }, { onConflict: "requester_id,mentor_id" });
 
       if (error) {
-        // 23505 = unique violation: one open request per mentor per person.
-        const duplicate = error.code === "23505";
-        setRequestError(duplicate
-          ? t("mentorship.request_duplicate", "You already have an open request with this mentor.")
-          : error.message);
-        if (duplicate) setRequestedIds(prev => new Set(prev).add(requestMentor.id));
+        setRequestError(error.message);
         return;
       }
 
-      setRequestedIds(prev => new Set(prev).add(requestMentor.id));
+      setRequestStatus(prev => ({ ...prev, [requestMentor.id]: "pending" }));
       setRequestMentor(null);
       try {
         window.dispatchEvent(new CustomEvent("app:toast", {
@@ -266,6 +294,35 @@ export default function MentorshipPage() {
       setRequestError(err instanceof Error ? err.message : t("mentorship.request_failed", "Could not send the request."));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmWithdraw = async () => {
+    if (!withdrawMentor) return;
+    setWithdrawing(true);
+    try {
+      const { data: ud } = await supabase.auth.getUser();
+      const user = ud?.user;
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("mentor_requests")
+        .update({ status: "withdrawn" })
+        .eq("requester_id", user.id)
+        .eq("mentor_id", withdrawMentor.id);
+      if (error) throw error;
+
+      setRequestStatus(prev => ({ ...prev, [withdrawMentor.id]: "withdrawn" }));
+      setWithdrawMentor(null);
+      try {
+        window.dispatchEvent(new CustomEvent("app:toast", {
+          detail: { message: t("mentorship.withdraw_done", "Request withdrawn.") },
+        }));
+      } catch { /* ignore */ }
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : t("requests.update_failed", "Could not update the request."));
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -300,7 +357,20 @@ export default function MentorshipPage() {
             <ArrowLeft size={15} className="rtl:rotate-180" /> {t("mentorship.back_home", "Back to home")}
           </Link>
 
-          <Link href="/mentorship/saved"
+          <div className="flex flex-wrap items-center gap-3">
+            {signedIn && (
+              <Link href="/mentorship/requests"
+                className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
+                  pendingIncoming > 0 ? savedBtn : outlineBtn
+                } ${focusRing}`}>
+                <Inbox size={15} />
+                {pendingIncoming > 0
+                  ? t("requests.pending_count", "{count} pending").replace("{count}", String(pendingIncoming))
+                  : t("requests.link", "Requests")}
+              </Link>
+            )}
+
+            <Link href="/mentorship/saved"
             className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150 ${
               saved.length > 0 ? savedBtn : outlineBtn
             } ${focusRing}`}>
@@ -308,7 +378,8 @@ export default function MentorshipPage() {
             {saved.length > 0
               ? t("mentorship.saved_count", "{count} saved").replace("{count}", String(saved.length))
               : t("mentorship.view_saved", "Saved")}
-          </Link>
+            </Link>
+          </div>
         </div>
 
         {/* Page title. "Mentorship Hub" leads; the old h1 is now the standfirst. */}
@@ -385,6 +456,25 @@ export default function MentorshipPage() {
             {/* Only shown to people who have not built a portfolio yet.
                 `=== false` rather than `!portfolioReady` so the nudge stays
                 hidden while the check is still in flight. */}
+            {/* Becoming a mentor had no entry point anywhere in the product. */}
+            {!alreadyMentor && (
+              <div className={`rounded-2xl border p-5 ${cardCls}`}>
+                <div className="flex items-center gap-2">
+                  <UserPlus size={15} className={accentCls} />
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${accentCls}`}>
+                    {t("apply.card_title", "Become a mentor")}
+                  </p>
+                </div>
+                <p className={`mt-2 text-xs leading-relaxed ${dimCls}`}>
+                  {t("apply.card_body", "Been where these makers want to go? Apply to join the mentor network.")}
+                </p>
+                <Link href="/mentorship/apply"
+                  className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${primaryBtn} ${focusRing}`}>
+                  {t("apply.cta", "Apply to be a Mentor")} <ArrowRight size={15} className="rtl:rotate-180" />
+                </Link>
+              </div>
+            )}
+
             {portfolioReady === false && (
               <div className={`rounded-2xl border p-5 ${cardCls}`}>
                 <div className="flex items-center gap-2">
@@ -452,7 +542,9 @@ export default function MentorshipPage() {
                 <div className="space-y-3">
                   {filteredMentors.map(mentor => {
                     const isSaved = savedIds.has(mentor.id);
-                    const alreadyRequested = requestedIds.has(mentor.id);
+                    const status = requestStatus[mentor.id];
+                    const isPending = status === "pending";
+                    const isAccepted = status === "accepted";
                     return (
                       <article key={mentor.id} className={`rounded-2xl border p-5 transition-all duration-150 ${cardHover} ${cardCls}`}>
                         <div className="flex items-start gap-4">
@@ -472,12 +564,26 @@ export default function MentorshipPage() {
                               items={mentor.categories.map(cat => t(CATEGORY_META[cat].labelKey, CATEGORY_META[cat].fallback))} />
 
                             <div className="mt-4 flex flex-wrap gap-2">
-                              <button type="button" onClick={() => openRequest(mentor)} disabled={alreadyRequested}
-                                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-colors disabled:cursor-default disabled:opacity-60 ${primaryBtn} ${focusRing}`}>
-                                {alreadyRequested
-                                  ? <><Check size={13} /> {t("mentorship.cta_requested", "Requested")}</>
-                                  : t("mentorship.cta_request", "Request Session")}
-                              </button>
+                              {isAccepted ? (
+                                <span className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold ${
+                                  isLight ? "border-emerald-500/25 bg-emerald-50 text-emerald-700" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-400"
+                                }`}>
+                                  <Check size={13} /> {t("mentorship.cta_accepted", "Accepted")}
+                                </span>
+                              ) : isPending ? (
+                                /* Clickable so a request can be withdrawn from here,
+                                   rather than only from the requests page. */
+                                <button type="button" onClick={() => setWithdrawMentor(mentor)}
+                                  title={t("mentorship.withdraw_hint", "Click to withdraw")}
+                                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold transition-colors ${savedBtn} ${focusRing}`}>
+                                  <Check size={13} /> {t("mentorship.cta_requested", "Requested")}
+                                </button>
+                              ) : (
+                                <button type="button" onClick={() => openRequest(mentor)}
+                                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${primaryBtn} ${focusRing}`}>
+                                  {t("mentorship.cta_request", "Request Session")}
+                                </button>
+                              )}
                               <button type="button" onClick={() => handleToggleSave(toSavedMentor(mentor))}
                                 className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-medium transition-colors ${
                                   isSaved ? savedBtn : outlineBtn
@@ -553,6 +659,32 @@ export default function MentorshipPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Withdraw confirmation ─────────────────────────────────────────── */}
+      {withdrawMentor && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
+          role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
+          <div className={`w-full max-w-md rounded-2xl border p-6 ${isLight ? "border-ivory-300 bg-ivory-50" : "border-midnight-700 bg-midnight-900"}`}>
+            <h2 id="withdraw-title" className={`text-base font-bold ${titleCls}`}>
+              {t("mentorship.withdraw_title", "Withdraw your request?")}
+            </h2>
+            <p className={`mt-2 text-sm leading-relaxed ${mutedCls}`}>
+              {t("mentorship.withdraw_body", "Your request to {name} will be withdrawn. You can send a new one later.")
+                .replace("{name}", withdrawMentor.name)}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={confirmWithdraw} disabled={withdrawing}
+                className={`flex-1 cursor-pointer rounded-xl px-5 py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${primaryBtn} ${focusRing}`}>
+                {withdrawing ? t("mentorship.withdraw_working", "Withdrawing…") : t("mentorship.withdraw_yes", "Yes, withdraw")}
+              </button>
+              <button type="button" onClick={() => setWithdrawMentor(null)} disabled={withdrawing}
+                className={`flex-1 cursor-pointer rounded-xl border px-5 py-3 text-sm font-medium transition-colors ${outlineBtn} ${focusRing}`}>
+                {t("mentorship.withdraw_no", "No, keep it")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Request session modal ─────────────────────────────────────────── */}
       {requestMentor && (
