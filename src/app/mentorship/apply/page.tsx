@@ -148,7 +148,6 @@ export default function MentorApplyPage() {
   };
 
   const motivationLength = motivation.trim().length;
-  const hasLink = profileLink.trim().length > 0;
   const canSubmit =
     fullName.trim().length >= 2 &&
     email.includes("@") &&
@@ -156,7 +155,6 @@ export default function MentorApplyPage() {
     years !== "" &&
     location.trim().length >= 2 &&
     resume !== null &&
-    hasLink &&
     categories.length > 0 &&
     availability !== "" &&
     motivationLength >= MIN_MOTIVATION &&
@@ -309,12 +307,12 @@ export default function MentorApplyPage() {
                 </div>
                 <div className="sm:col-span-2">
                   <label htmlFor="profile-link" className={labelCls}>
-                    {t("apply.profile_link", "LinkedIn, portfolio, GitHub, or personal site")} *
+                    {t("apply.profile_link", "LinkedIn, portfolio, GitHub, or personal site")}
                   </label>
                   <input id="profile-link" value={profileLink} onChange={e => setProfileLink(e.target.value)}
                     placeholder="https://linkedin.com/in/… " className={inputCls} />
-                  <p className={`mt-1 text-xs ${hasLink ? dimCls : accentCls}`}>
-                    {t("apply.link_hint", "One link we can use to verify your background.")}
+                  <p className={`mt-1 text-xs ${dimCls}`}>
+                    {t("apply.link_hint", "Optional, but it helps us verify your background faster.")}
                   </p>
                 </div>
               </div>

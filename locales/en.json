@@ -747,7 +747,7 @@
     "job_title_placeholder": "e.g. Senior Product Designer",
     "organisation": "Company or organisation",
     "years": "Years of experience",
-    "link_hint": "One link we can use to verify your background.",
+    "link_hint": "Optional, but it helps us verify your background faster.",
     "expertise": "Areas of expertise",
     "expertise_placeholder": "e.g. Product Management, React, Hiring",
     "expertise_add": "Add",
