@@ -773,6 +773,7 @@
     "resume_remove": "Remove resume",
     "resume_type_error": "Please upload a PDF.",
     "resume_size_error": "That file is over 5 MB. Please upload a smaller PDF.",
-    "profile_link": "LinkedIn, portfolio, GitHub, or personal site"
+    "profile_link": "LinkedIn, portfolio, GitHub, or personal site",
+    "motivation_label": "Tell us in your own words"
   }
 }

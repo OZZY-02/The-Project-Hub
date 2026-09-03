@@ -435,7 +435,11 @@ export default function MentorApplyPage() {
             {/* ── Motivation ── */}
             <section className={`rounded-2xl border p-6 ${cardCls}`}>
               <h2 className={`mb-5 text-sm font-bold ${titleCls}`}>{t("apply.section_motivation", "Why you want to mentor")}</h2>
+              <label htmlFor="motivation" className={labelCls}>
+                {t("apply.motivation_label", "Tell us in your own words")} *
+              </label>
               <textarea
+                id="motivation"
                 value={motivation}
                 onChange={e => setMotivation(e.target.value.slice(0, MAX_MOTIVATION))}
                 rows={6}
@@ -455,6 +459,7 @@ export default function MentorApplyPage() {
                 <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
                   className="mt-0.5 h-4 w-4 shrink-0 accent-amber-500" />
                 <span className={`text-xs leading-relaxed ${mutedCls}`}>
+                  <span className={accentCls}>* </span>
                   {t("apply.agreement", "I confirm the information above is accurate, and I agree to respond to requests I accept and to treat every maker with respect.")}
                 </span>
               </label>

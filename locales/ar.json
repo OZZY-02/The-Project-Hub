@@ -746,6 +746,7 @@
     "resume_remove": "إزالة السيرة الذاتية",
     "resume_type_error": "الرجاء رفع ملف PDF.",
     "resume_size_error": "حجم الملف يتجاوز ٥ ميغابايت. الرجاء رفع ملف أصغر.",
-    "profile_link": "لينكدإن أو الملف أو GitHub أو موقعك الشخصي"
+    "profile_link": "لينكدإن أو الملف أو GitHub أو موقعك الشخصي",
+    "motivation_label": "أخبرنا بكلماتك"
   }
 }
